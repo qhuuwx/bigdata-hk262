@@ -1,0 +1,117 @@
+# ==============================================================================
+# .gitignore - Retail Analytics & Demand Forecasting Dashboard
+# Project: bigdata_inventory
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Dependencies & Package Managers
+# ------------------------------------------------------------------------------
+node_modules/
+*/node_modules/
+frontend/node_modules/
+.pnpm-store/
+
+# Package manager logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ------------------------------------------------------------------------------
+# 2. Build Outputs & Bundler Caches (Vite / React / Static Dist)
+# ------------------------------------------------------------------------------
+dist/
+dist-ssr/
+frontend/dist/
+frontend/dist-ssr/
+.vite/
+frontend/.vite/
+*.local
+.parcel-cache/
+.cache/
+.eslintcache
+
+# ------------------------------------------------------------------------------
+# 3. Big Data Datasets & Analytical Output Caches
+# Note: Raw datasets (>100MB) exceed GitHub file limits and should not be tracked.
+# Keep raw CSVs in data/ locally or download via external storage / LFS.
+# ------------------------------------------------------------------------------
+data/*.csv
+*.csv
+data/results/*
+!data/results/.gitkeep
+!data/.gitkeep
+
+# ------------------------------------------------------------------------------
+# 4. Environment Variables & Secret Credentials
+# ------------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+!.env.template
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ------------------------------------------------------------------------------
+# 5. Logs & Runtime Diagnostics
+# ------------------------------------------------------------------------------
+logs/
+*.log
+*.tmp
+*.temp
+
+# ------------------------------------------------------------------------------
+# 6. Test & Coverage Reports
+# ------------------------------------------------------------------------------
+coverage/
+.nyc_output/
+
+# ------------------------------------------------------------------------------
+# 7. Operating System Artifacts
+# ------------------------------------------------------------------------------
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+# ------------------------------------------------------------------------------
+# 8. Editor & IDE Settings
+# ------------------------------------------------------------------------------
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+
+# ------------------------------------------------------------------------------
+# 9. AI Tooling & Internal Development Metadata
+# ------------------------------------------------------------------------------
+.gemini/
+.agents/
+.claude/
+.cursor/

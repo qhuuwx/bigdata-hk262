@@ -1,0 +1,17 @@
+{
+  "name": "bigdata_inventory",
+  "version": "1.0.0",
+  "description": "Big Data Demand Forecasting and Smart Inventory Management",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "test": "node test_endpoints.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "csv-parser": "^3.0.0",
+    "express": "^4.19.2"
+  },
+  "author": "",
+  "license": "ISC"
+}

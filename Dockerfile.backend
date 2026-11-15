@@ -1,0 +1,37 @@
+# ==============================================================================
+# Dockerfile.backend - Node.js Analytical Backend Service
+# Big Data Demand Forecasting & Smart Inventory System (bigdata_inventory)
+# Base Image: node:18-alpine (minimal footprint, pure JS execution)
+# ==============================================================================
+
+FROM node:18-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Configure production environment variables
+ENV NODE_ENV=production \
+    PORT=3000 \
+    DATA_DIR=/app/data
+
+# Copy dependency manifests first to optimize Docker layer caching
+COPY package*.json ./
+
+# Install only production dependencies
+RUN npm install --production --silent
+
+# Copy backend source code, algorithms, datasets, and test suite
+COPY backend/ ./backend/
+COPY algorithms/ ./algorithms/
+COPY data/ ./data/
+COPY test_endpoints.js ./
+
+# Expose backend API port
+EXPOSE 3000
+
+# Healthcheck using explicit IPv4 127.0.0.1 (avoids IPv6 ECONNREFUSED ::1 in Alpine Linux)
+HEALTHCHECK --interval=5s --timeout=5s --retries=10 --start-period=30s \
+  CMD node -e "require('http').get('http://127.0.0.1:3000/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
+
+# Start the Express server
+CMD ["node", "backend/server.js"]
