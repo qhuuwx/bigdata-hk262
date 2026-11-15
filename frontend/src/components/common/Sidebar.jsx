@@ -7,6 +7,10 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
 import SidebarToggleIcon from './SidebarToggleIcon';
+import logo from '../../assets/icons/logo.png';
+import iconEda from '../../assets/icons/iconEda.png';
+import iconForecast from '../../assets/icons/iconForecast.png';
+import iconInventory from '../../assets/icons/iconInventory.png';
 
 export const Sidebar = ({ isCollapsed = false, onToggle }) => {
   const { activeTab, setActiveTab } = useApp();
@@ -15,17 +19,17 @@ export const Sidebar = ({ isCollapsed = false, onToggle }) => {
     {
       id: 'tab-eda',
       title: 'EDA & Streaming',
-      icon: "/icons/iconEda.png",
+      icon: iconEda,
     },
     {
       id: 'tab-forecast',
       title: 'Dự báo Nhu cầu',
-      icon: "/icons/iconForecast.png",
+      icon: iconForecast,
     },
     {
       id: 'tab-inventory',
       title: 'Tồn kho Thông minh',
-      icon: "/icons/iconInventory.png",
+      icon: iconInventory,
     }
   ];
 
@@ -38,7 +42,7 @@ export const Sidebar = ({ isCollapsed = false, onToggle }) => {
       <div className="p-5 border-b border-sky-200/80 flex items-center justify-between">
         <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center w-full' : ''}`}>
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-sky-500 flex items-center justify-center text-white shadow-md shadow-sky-400/30 flex-shrink-0">
-            <img src="icons/logo.png" alt="Logo" className="w-8 h-8" />
+            <img src={logo} alt="Logo" className="w-8 h-8" />
           </div>
           {!isCollapsed && (
             <div className="leading-tight truncate">
