@@ -21,10 +21,10 @@ export const Header = ({ onToggleSidebar }) => {
     <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between sticky top-0 z-20">
       <div className="flex items-center gap-3">
         <div>
-          <h2 className="text-lg font-bold text-slate-800 tracking-tight">
+          <h2 className="text-base font-bold text-slate-800 tracking-wider uppercase">
             {tabTitles[activeTab] || 'Retail Analytics Dashboard'}
           </h2>
-          <p className="text-xs text-slate-500">
+          <p className="text-[11px] text-slate-500 font-semibold tracking-wider uppercase mt-0.5">
             {activeTab === 'tab-forecast' ? 'Normal vs Super Forecast' : ''}
           </p>
         </div>
@@ -33,9 +33,9 @@ export const Header = ({ onToggleSidebar }) => {
       <div className="flex items-center gap-3">
         <div className={`px-3 py-1 rounded-full text-xs border flex items-center gap-2 ${curStatus.text}`}>
           <span className={`w-2 h-2 rounded-full ${curStatus.color}`} />
-          <span className="font-medium">{curStatus.label}</span>
+          <span className="font-semibold uppercase tracking-wider text-[11px]">{curStatus.label}</span>
           {backendMeta && backendMeta.salesCount > 0 && (
-            <span className="text-[11px] opacity-75">
+            <span className="text-[11px] opacity-75 font-mono">
               ({(backendMeta.salesCount + backendMeta.inventoryCount).toLocaleString()} rows)
             </span>
           )}

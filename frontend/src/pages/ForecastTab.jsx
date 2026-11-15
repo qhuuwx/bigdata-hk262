@@ -69,7 +69,7 @@ export const ForecastTab = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
             {/* Category Dropdown */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
                 Product Category
               </label>
               <select
@@ -87,7 +87,7 @@ export const ForecastTab = () => {
 
             {/* Store Dropdown */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
                 Store ID
               </label>
               <select
@@ -105,7 +105,7 @@ export const ForecastTab = () => {
 
             {/* Forecast Periods Input */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
                 Số kỳ dự báo (4 - 24)
               </label>
               <input
@@ -123,7 +123,7 @@ export const ForecastTab = () => {
               <button
                 onClick={runForecast}
                 disabled={isForecasting}
-                className="w-full bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white font-semibold py-2 px-4 rounded-lg text-xs transition-all shadow-md shadow-sky-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white font-semibold uppercase tracking-wider py-2 px-4 rounded-lg text-xs transition-all shadow-md shadow-sky-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isForecasting ? (
                   <>

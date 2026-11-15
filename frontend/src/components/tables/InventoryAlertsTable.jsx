@@ -27,7 +27,7 @@ export const InventoryAlertsTable = ({ alerts = [], isLoading = false }) => {
   return (
     <div className="overflow-x-auto border border-slate-200 rounded-lg">
       <table className="w-full text-left text-xs border-collapse">
-        <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+        <thead className="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider text-[11px] border-b border-slate-200">
           <tr>
             <th className="py-2.5 px-3">Product Category</th>
             <th className="py-2.5 px-3">Store</th>

@@ -52,10 +52,10 @@ export const InventoryTab = () => {
           action={
             <button
               onClick={resetCumulative}
-              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded text-xs font-medium transition-colors"
+              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded text-[11px] font-semibold uppercase tracking-wider transition-colors"
               title="Đặt lại bộ đếm tích lũy"
             >
-            Đặt lại
+              Đặt lại
             </button>
           }
           className="lg:col-span-1"
@@ -133,14 +133,13 @@ export const InventoryTab = () => {
           {/* Tổng tích lũy Banner */}
           <div className="sm:col-span-3 bg-white border border-slate-200 rounded-xl p-4 flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-3">
-              <span className="text-2xl">📦</span>
               <div>
-                <h4 className="text-xs font-bold text-slate-800">
+                <h1 className="text-xs text-size-7 font-semibold text-slate-600 uppercase tracking-wider">
                   Tổng Bản Ghi Tồn Kho Đã Xử Lý Tích Lũy
-                </h4>
+                </h1>
               </div>
             </div>
-            <div className="text-lg font-bold font-mono text-sky-700 bg-sky-50 px-3 py-1 rounded-lg border border-sky-200">
+            <div className="text-xs text-size-7 font-semibold text-slate-600 uppercase tracking-wider font-mono text-sky-700 bg-sky-50 px-3 py-1 rounded-lg border border-sky-200">
               {formatNumber(total)} bản ghi
             </div>
           </div>

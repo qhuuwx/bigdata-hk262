@@ -16,7 +16,7 @@ export const LoadingSpinner = ({ text = 'Đang tải dữ liệu...', size = 'md
       <div
         className={`${sizeClasses[size] || sizeClasses.md} rounded-full border-sky-500 border-t-transparent animate-spin`}
       />
-      {text && <span className="text-xs font-medium text-slate-500">{text}</span>}
+      {text && <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">{text}</span>}
     </div>
   );
 };

@@ -46,8 +46,8 @@ export const Sidebar = ({ isCollapsed = false, onToggle }) => {
           </div>
           {!isCollapsed && (
             <div className="leading-tight truncate">
-              <h1 className="font-bold text-slate-800 text-sm tracking-tight truncate">Big Data</h1>
-              <p className="text-[11px] text-sky-700 font-medium truncate">BTL HK262</p>
+              <h1 className="font-bold text-slate-800 text-sm tracking-wider uppercase truncate">Big Data</h1>
+              <p className="text-[11px] text-sky-700 font-semibold tracking-wider uppercase truncate">BTL HK262</p>
             </div>
           )}
         </div>
@@ -71,10 +71,12 @@ export const Sidebar = ({ isCollapsed = false, onToggle }) => {
               <img src={item.icon} alt={item.title} className="w-9 h-9 flex-shrink-0" />
               {!isCollapsed && (
                 <div className="truncate">
-                  <div className="text-sm leading-snug truncate">{item.title}</div>
-                  <div className={`text-[10px] truncate ${isActive ? 'text-sky-100' : 'text-slate-500'}`}>
-                    {item.desc}
-                  </div>
+                  <div className="text-xs font-semibold tracking-wider uppercase truncate">{item.title}</div>
+                  {item.desc && (
+                    <div className={`text-[10px] truncate ${isActive ? 'text-sky-100' : 'text-slate-500'}`}>
+                      {item.desc}
+                    </div>
+                  )}
                 </div>
               )}
             </button>
@@ -97,7 +99,7 @@ export const Sidebar = ({ isCollapsed = false, onToggle }) => {
         >
           <SidebarToggleIcon />
           {!isCollapsed && (
-            <span className="text-xs font-medium whitespace-nowrap ml-2 text-slate-700">
+            <span className="text-xs font-semibold tracking-wider uppercase whitespace-nowrap ml-2 text-slate-700">
               Thu gọn
             </span>
           )}

@@ -10,7 +10,7 @@ export const SalesStreamTable = ({ rows = [] }) => {
   return (
     <div className="overflow-x-auto border border-slate-200 rounded-lg max-h-[360px] overflow-y-auto">
       <table className="w-full text-left text-xs border-collapse">
-        <thead className="bg-slate-50 text-slate-600 font-semibold sticky top-0 border-b border-slate-200 z-10">
+        <thead className="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider text-[11px] sticky top-0 border-b border-slate-200 z-10">
           <tr>
             <th className="py-2.5 px-3">Transaction Date</th>
             <th className="py-2.5 px-3">Product Division</th>
