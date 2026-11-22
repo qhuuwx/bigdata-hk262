@@ -13,7 +13,7 @@ RUN npm run build
 # Stage 2: Serve Production Assets with Nginx Alpine
 FROM nginx:alpine
 WORKDIR /usr/share/nginx/html
-RUN rm -rf ./*
+RUN find . -maxdepth 1 ! -name '.' ! -name '50x.html' -exec rm -rf {} +
 COPY --from=builder /app/dist/ ./
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
