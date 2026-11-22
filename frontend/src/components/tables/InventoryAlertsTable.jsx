@@ -1,6 +1,6 @@
 ﻿/**
  * Inventory Alerts Table Component
- * Displays top 10 prioritized stock alerts (Low Stock first, then Overstock).
+ * Displays top 10 prioritized stock alerts (Low Stock urgent first, then Overstock).
  */
 
 import React from 'react';
@@ -11,53 +11,61 @@ export const InventoryAlertsTable = ({ alerts = [], isLoading = false }) => {
   if (isLoading) {
     return (
       <div className="text-center py-8 text-slate-400 text-xs">
-        Đang nạp danh sách cảnh báo tồn kho...
+        Đang truy xuất danh sách cảnh báo tồn kho...
       </div>
     );
   }
 
   if (!alerts || alerts.length === 0) {
     return (
-      <div className="text-center py-6 text-slate-400 text-xs bg-slate-50 rounded-lg border border-slate-200">
-        Không có cảnh báo tồn kho nghiêm trọng tại thời điểm này.
+      <div className="text-center py-8 text-slate-400 text-xs">
+        Không ghi nhận cảnh báo tồn kho vượt ngưỡng tại thời điểm này.
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto border border-slate-200 rounded-lg">
+    <div className="overflow-x-auto">
       <table className="w-full text-left text-xs border-collapse">
-        <thead className="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider text-[11px] border-b border-slate-200">
+        <thead className="bg-slate-50 text-slate-500 font-medium text-[11px] border-b border-slate-200">
           <tr>
-            <th className="py-2.5 px-3">Product Category</th>
-            <th className="py-2.5 px-3">Store</th>
-            <th className="py-2.5 px-3 text-right">Qty on hand</th>
-            <th className="py-2.5 px-3 text-center">Stock Status</th>
-            <th className="py-2.5 px-3 text-center">Mức độ</th>
+            <th className="py-2.5 px-4 font-medium w-14">Hạng</th>
+            <th className="py-2.5 px-4 font-medium">Danh mục sản phẩm</th>
+            <th className="py-2.5 px-4 font-medium">Cửa hàng</th>
+            <th className="py-2.5 px-4 font-medium text-right">Tồn kho hiện hữu</th>
+            <th className="py-2.5 px-4 font-medium text-center">Phân loại ngưỡng</th>
+            <th className="py-2.5 px-4 font-medium text-right">Mức độ ưu tiên</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 font-normal text-slate-700">
+        <tbody className="divide-y divide-slate-100 text-slate-700">
           {alerts.map((row, idx) => {
-            const isLow = row.status === 'Low Stock';
+            const statusText = row.stockStatus || row.status || row['Stock Status'] || 'Low Stock';
+            const isLow = statusText.toLowerCase().includes('low');
+            const cleanLevel = isLow ? 'Khẩn cấp (Cover < 14d)' : 'Chú ý (Cover ≥ 60d)';
             return (
-              <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                <td className="py-2.5 px-3 font-medium text-slate-800">{row.category}</td>
-                <td className="py-2.5 px-3">
-                  <span className="bg-slate-100 px-2 py-0.5 rounded text-[11px] font-mono text-slate-600">
+              <tr key={`${row.category}-${row.store}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
+                <td className="py-2.5 px-4 font-mono text-[11px] text-slate-400 tabular-nums">
+                  {String(idx + 1).padStart(2, '0')}
+                </td>
+                <td className="py-2.5 px-4 font-medium text-slate-900">
+                  {row.category}
+                </td>
+                <td className="py-2.5 px-4">
+                  <span className="inline-block bg-slate-100 border border-slate-200/80 px-2 py-0.5 rounded text-[11px] font-mono text-slate-700">
                     {row.store}
                   </span>
                 </td>
-                <td className="py-2.5 px-3 text-right font-mono font-semibold text-slate-800">
+                <td className="py-2.5 px-4 text-right font-mono tabular-nums font-semibold text-slate-900">
                   {formatNumber(row.qtyOnHand)}
                 </td>
-                <td className="py-2.5 px-3 text-center">
+                <td className="py-2.5 px-4 text-center">
                   <Badge variant={isLow ? 'low' : 'over'}>
-                    {row.status}
+                    {statusText}
                   </Badge>
                 </td>
-                <td className="py-2.5 px-3 text-center">
-                  <Badge variant={isLow ? 'urgent' : 'warning'}>
-                    {row.level}
+                <td className="py-2.5 px-4 text-right">
+                  <Badge variant={isLow ? 'urgent' : 'warning'} dot>
+                    {cleanLevel}
                   </Badge>
                 </td>
               </tr>

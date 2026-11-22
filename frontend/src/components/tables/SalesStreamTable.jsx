@@ -1,6 +1,6 @@
 ﻿/**
  * Sales Stream Table Component
- * Renders scrollable table of live transactions, up to 100 rows, prepending new items.
+ * High-density institutional transaction tape (up to 100 rows, newest first).
  */
 
 import React from 'react';
@@ -8,57 +8,62 @@ import { formatCurrency, formatNumber } from '../../utils/formatters';
 
 export const SalesStreamTable = ({ rows = [] }) => {
   return (
-    <div className="overflow-x-auto border border-slate-200 rounded-lg max-h-[360px] overflow-y-auto">
+    <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
       <table className="w-full text-left text-xs border-collapse">
-        <thead className="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider text-[11px] sticky top-0 border-b border-slate-200 z-10">
+        <thead className="bg-slate-50/95 text-slate-500 font-medium text-[11px] sticky top-0 border-b border-slate-200 z-10 backdrop-blur-sm">
           <tr>
-            <th className="py-2.5 px-3">Transaction Date</th>
-            <th className="py-2.5 px-3">Product Division</th>
-            <th className="py-2.5 px-3">Product Category</th>
-            <th className="py-2.5 px-3">Store</th>
-            <th className="py-2.5 px-3">Sales Channel</th>
-            <th className="py-2.5 px-3 text-right">Qty Sold</th>
-            <th className="py-2.5 px-3 text-right">Sales Amount</th>
+            <th className="py-2.5 px-4 font-medium">Ngày giao dịch</th>
+            <th className="py-2.5 px-4 font-medium">Nhóm hàng</th>
+            <th className="py-2.5 px-4 font-medium">Danh mục sản phẩm</th>
+            <th className="py-2.5 px-4 font-medium">Cửa hàng</th>
+            <th className="py-2.5 px-4 font-medium">Kênh phân phối</th>
+            <th className="py-2.5 px-4 font-medium text-right">Số lượng</th>
+            <th className="py-2.5 px-4 font-medium text-right">Giá trị ($)</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 font-normal text-slate-700">
+        <tbody className="divide-y divide-slate-100 text-slate-700">
           {rows.length === 0 ? (
             <tr>
-              <td colSpan="7" className="text-center py-8 text-slate-400">
-                Đang chờ luồng dữ liệu streaming...
+              <td colSpan="7" className="text-center py-10 text-slate-400 text-xs">
+                Đang đồng bộ luồng giao dịch từ bộ nhớ máy chủ...
               </td>
             </tr>
           ) : (
-            rows.map((row, idx) => (
-              <tr
-                key={idx}
-                className="hover:bg-sky-50/50 transition-colors duration-150 odd:bg-white even:bg-slate-50/30"
-              >
-                <td className="py-2 px-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">
-                  {row['Transaction Date']}
-                </td>
-                <td className="py-2 px-3 font-medium text-slate-800 whitespace-nowrap">
-                  {row['Product Division']}
-                </td>
-                <td className="py-2 px-3 truncate max-w-[200px]" title={row['Product Category']}>
-                  {row['Product Category']}
-                </td>
-                <td className="py-2 px-3 whitespace-nowrap">
-                  <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px] font-mono text-slate-600">
-                    {row['Store']}
-                  </span>
-                </td>
-                <td className="py-2 px-3 whitespace-nowrap">
-                  <span className="text-sky-700 font-medium">{row['Sales Channel']}</span>
-                </td>
-                <td className="py-2 px-3 text-right font-mono font-semibold text-slate-800">
-                  {formatNumber(row['Qty Sold'])}
-                </td>
-                <td className="py-2 px-3 text-right font-mono text-emerald-600 font-semibold">
-                  {formatCurrency(row['Sales Amount'])}
-                </td>
-              </tr>
-            ))
+            rows.map((row, idx) => {
+              const qty = Number(row['Qty Sold']) || 0;
+              const amt = Number(row['Sales Amount']) || 0;
+              const isNegative = amt < 0 || qty < 0;
+              return (
+                <tr
+                  key={idx}
+                  className="hover:bg-slate-50/80 transition-colors duration-100"
+                >
+                  <td className="py-2 px-4 font-mono text-[11.5px] text-slate-600 tabular-nums whitespace-nowrap">
+                    {row['Transaction Date']}
+                  </td>
+                  <td className="py-2 px-4 font-medium text-slate-800 whitespace-nowrap">
+                    {row['Product Division']}
+                  </td>
+                  <td className="py-2 px-4 text-slate-600 truncate max-w-[240px]" title={row['Product Category']}>
+                    {row['Product Category']}
+                  </td>
+                  <td className="py-2 px-4 whitespace-nowrap">
+                    <span className="inline-block bg-slate-100 border border-slate-200/80 px-1.5 py-0.5 rounded text-[11px] font-mono text-slate-700">
+                      {row['Store']}
+                    </span>
+                  </td>
+                  <td className="py-2 px-4 whitespace-nowrap text-slate-500 text-[11.5px]">
+                    {row['Sales Channel']}
+                  </td>
+                  <td className={`py-2 px-4 text-right font-mono tabular-nums font-medium ${isNegative ? 'text-rose-600' : 'text-slate-800'}`}>
+                    {formatNumber(qty)}
+                  </td>
+                  <td className={`py-2 px-4 text-right font-mono tabular-nums font-medium ${isNegative ? 'text-rose-600' : 'text-slate-900'}`}>
+                    {formatCurrency(amt)}
+                  </td>
+                </tr>
+              );
+            })
           )}
         </tbody>
       </table>

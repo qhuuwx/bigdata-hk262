@@ -10,22 +10,22 @@ export const inventoryService = {
   /**
    * Fetches latest 50-item cumulative stream update.
    */
-  async getInventoryStream() {
-    return apiClient.get(API_ENDPOINTS.INVENTORY_STREAM);
+  async getInventoryStream(options = {}) {
+    return apiClient.get(API_ENDPOINTS.INVENTORY_STREAM, options);
   },
 
   /**
    * Fetches top 10 prioritized stock alerts.
    */
-  async getInventoryAlerts() {
-    return apiClient.get(API_ENDPOINTS.INVENTORY_ALERTS);
+  async getInventoryAlerts(options = {}) {
+    return apiClient.get(API_ENDPOINTS.INVENTORY_ALERTS, options);
   },
 
   /**
    * Resets server-side cumulative counts.
    */
-  async resetInventory() {
-    return apiClient.post(API_ENDPOINTS.INVENTORY_RESET);
+  async resetInventory(options = {}) {
+    return apiClient.post(API_ENDPOINTS.INVENTORY_RESET, {}, options);
   }
 };
 

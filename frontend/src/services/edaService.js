@@ -10,40 +10,40 @@ export const edaService = {
   /**
    * Fetches monthly revenue trend.
    */
-  async getRevenueTrend() {
-    return apiClient.get(API_ENDPOINTS.EDA_REVENUE);
+  async getRevenueTrend(options = {}) {
+    return apiClient.get(API_ENDPOINTS.EDA_REVENUE, options);
   },
 
   /**
    * Fetches top 10 best-selling categories by quantity.
    */
-  async getTopCategories() {
-    return apiClient.get(API_ENDPOINTS.EDA_CATEGORIES);
+  async getTopCategories(options = {}) {
+    return apiClient.get(API_ENDPOINTS.EDA_CATEGORIES, options);
   },
 
   /**
    * Fetches channel revenue split.
    */
-  async getChannelSplit() {
-    return apiClient.get(API_ENDPOINTS.EDA_CHANNELS);
+  async getChannelSplit(options = {}) {
+    return apiClient.get(API_ENDPOINTS.EDA_CHANNELS, options);
   },
 
   /**
    * Fetches return rates by product division.
    */
-  async getReturnRate() {
-    return apiClient.get(API_ENDPOINTS.EDA_RETURNS);
+  async getReturnRate(options = {}) {
+    return apiClient.get(API_ENDPOINTS.EDA_RETURNS, options);
   },
 
   /**
    * Fetches all 4 EDA datasets concurrently.
    */
-  async getAllEdaData() {
+  async getAllEdaData(options = {}) {
     const [revenueTrend, topCategories, channelSplit, returnRate] = await Promise.all([
-      this.getRevenueTrend(),
-      this.getTopCategories(),
-      this.getChannelSplit(),
-      this.getReturnRate()
+      this.getRevenueTrend(options),
+      this.getTopCategories(options),
+      this.getChannelSplit(options),
+      this.getReturnRate(options)
     ]);
 
     return {

@@ -1,6 +1,6 @@
 ﻿/**
  * Tab 3: Real-Time Smart Inventory Intelligence Page
- * Cumulative Doughnut chart updated every 2s + Top 10 prioritized stock alerts table.
+ * Cumulative Doughnut chart updated every 2s + 3 institutional KPI cards + Top 10 prioritized stock alerts table.
  */
 
 import React from 'react';
@@ -21,7 +21,6 @@ export const InventoryTab = () => {
   const lowPct = total > 0 ? (low / total) * 100 : 0;
   const overPct = total > 0 ? (over / total) * 100 : 0;
 
-  // Dữ liệu biểu đồ tròn tích lũy thời gian thực
   const doughnutData = {
     labels: [
       `Healthy (${formatPercentage(healthyPct)})`,
@@ -42,104 +41,117 @@ export const InventoryTab = () => {
     ]
   };
 
+  const kpiCards = [
+    {
+      key: 'healthy',
+      label: 'Healthy Stock',
+      badge: '14d ≤ Cover < 60d',
+      variant: 'healthy',
+      borderAccent: 'border-l-emerald-600',
+      barColor: 'bg-emerald-600',
+      count: healthy,
+      pct: healthyPct,
+      desc: 'Độ bao phủ đáp ứng từ 2 tuần đến dưới 2 tháng tiêu thụ, hoặc chưa phát sinh cầu trong 30 ngày.'
+    },
+    {
+      key: 'low',
+      label: 'Low Stock (Risk)',
+      badge: 'Cover < 14d',
+      variant: 'low',
+      borderAccent: 'border-l-amber-600',
+      barColor: 'bg-amber-500',
+      count: low,
+      pct: lowPct,
+      desc: 'Tồn kho dưới 14 ngày bán trung bình; nguy cơ đứt hàng, cần ưu tiên bổ sung nguồn cung.'
+    },
+    {
+      key: 'over',
+      label: 'Overstock (Excess)',
+      badge: 'Cover ≥ 60d',
+      variant: 'over',
+      borderAccent: 'border-l-rose-600',
+      barColor: 'bg-rose-600',
+      count: over,
+      pct: overPct,
+      desc: 'Lượng tồn vượt 60 ngày tiêu thụ; gây ứ đọng vốn lưu động, cần điều chuyển hoặc giảm giá.'
+    }
+  ];
+
   return (
-    <div className="space-y-6">
-      {/* 1. Cumulative Stream Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="space-y-5">
+      {/* 1. Cumulative Stream & KPI Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Doughnut Chart */}
         <Card
-          title="Tỷ Lệ Tồn Kho Tích Lũy"
+          title="Cơ cấu Tồn kho Tích lũy"
+          subtitle="Lô 50 bản ghi / 2s trên RAM"
+          className="lg:col-span-4"
           action={
             <button
               onClick={resetCumulative}
-              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded text-[11px] font-semibold uppercase tracking-wider transition-colors"
-              title="Đặt lại bộ đếm tích lũy"
+              className="px-2.5 py-1 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded text-xs font-medium transition-colors"
+              title="Đặt lại bộ đếm tích lũy trên máy chủ"
             >
               Đặt lại
             </button>
           }
-          className="lg:col-span-1"
         >
           <div className="flex-1 flex flex-col justify-center items-center">
-            <DoughnutChart data={doughnutData} height={240} cutout="65%" />
+            <DoughnutChart data={doughnutData} height={230} cutout="68%" />
           </div>
         </Card>
 
-        {/* 3 KPI Summary Cards */}
-        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {/* Healthy Card */}
-          <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-5 flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-emerald-800 uppercase tracking-wider">
-              Healthy
-              </span>
-              <Badge variant="healthy">Cover &gt; 14d</Badge>
-            </div>
-            <div className="my-3">
-              <div className="text-2xl font-bold font-mono text-emerald-900">
-                {formatNumber(healthy)}
+        {/* 3 Institutional KPI Cards + Telemetry Footer */}
+        <div className="lg:col-span-8 flex flex-col justify-between gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-1">
+            {kpiCards.map((item) => (
+              <div
+                key={item.key}
+                className={`bg-white border border-slate-200 border-l-[3px] ${item.borderAccent} rounded-lg p-4 shadow-[0_1px_2px_rgba(15,23,42,0.03)] flex flex-col justify-between`}
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-slate-800 tracking-tight">
+                      {item.label}
+                    </span>
+                    <Badge variant={item.variant}>{item.badge}</Badge>
+                  </div>
+
+                  <div className="mt-4 mb-3">
+                    <div className="text-2xl font-semibold font-mono tabular-nums text-slate-900">
+                      {formatNumber(item.count)}
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 mt-1">
+                      <span>Tỷ trọng tích lũy</span>
+                      <span className="font-medium text-slate-700 tabular-nums">
+                        {formatPercentage(item.pct)}
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mt-1.5">
+                      <div
+                        className={`h-full ${item.barColor} transition-all duration-300`}
+                        style={{ width: `${Math.min(100, item.pct)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-slate-500 leading-relaxed border-t border-slate-100 pt-2.5">
+                  {item.desc}
+                </p>
               </div>
-              <div className="text-xs text-emerald-700 font-medium mt-1">
-                {formatPercentage(healthyPct)} tổng tích lũy
-              </div>
-            </div>
-            <p className="text-[11px] text-emerald-600/90 leading-relaxed">
-              Tồn kho an toàn đáp ứng tối thiểu 2 tuần bán lẻ.
-            </p>
+            ))}
           </div>
 
-          {/* Low Stock Card */}
-          <div className="bg-orange-50/70 border border-orange-200 rounded-xl p-5 flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-orange-800 uppercase tracking-wider">
-              Low Stock
+          {/* Cumulative Telemetry Strip */}
+          <div className="bg-white border border-slate-200 rounded-lg px-4 py-3 flex items-center justify-between shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+            <div className="flex items-center gap-2.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-xs font-medium text-slate-700">
+                Tổng bản ghi tồn kho đã phân loại trong phiên máy chủ (Persistent RAM State)
               </span>
-              <Badge variant="low">Cover &lt; 14d</Badge>
             </div>
-            <div className="my-3">
-              <div className="text-2xl font-bold font-mono text-orange-900">
-                {formatNumber(low)}
-              </div>
-              <div className="text-xs text-orange-700 font-medium mt-1">
-                {formatPercentage(lowPct)} tổng tích lũy
-              </div>
-            </div>
-            <p className="text-[11px] text-orange-600/90 leading-relaxed">
-              Nguy cơ đứt hàng, cần kích hoạt đơn đặt bổ sung khẩn cấp.
-            </p>
-          </div>
-
-          {/* Overstock Card */}
-          <div className="bg-rose-50/70 border border-rose-200 rounded-xl p-5 flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-rose-800 uppercase tracking-wider">
-              Overstock
-              </span>
-              <Badge variant="over">Cover &gt; 60d</Badge>
-            </div>
-            <div className="my-3">
-              <div className="text-2xl font-bold font-mono text-rose-900">
-                {formatNumber(over)}
-              </div>
-              <div className="text-xs text-rose-700 font-medium mt-1">
-                {formatPercentage(overPct)} tổng tích lũy
-              </div>
-            </div>
-            <p className="text-[11px] text-rose-600/90 leading-relaxed">
-              Tồn kho trên 2 tháng doanh số, gây ứ đọng dòng vốn.
-            </p>
-          </div>
-
-          {/* Tổng tích lũy Banner */}
-          <div className="sm:col-span-3 bg-white border border-slate-200 rounded-xl p-4 flex items-center justify-between shadow-sm">
-            <div className="flex items-center gap-3">
-              <div>
-                <h1 className="text-xs text-size-7 font-semibold text-slate-600 uppercase tracking-wider">
-                  Tổng Bản Ghi Tồn Kho Đã Xử Lý Tích Lũy
-                </h1>
-              </div>
-            </div>
-            <div className="text-xs text-size-7 font-semibold text-slate-600 uppercase tracking-wider font-mono text-sky-700 bg-sky-50 px-3 py-1 rounded-lg border border-sky-200">
+            <div className="text-xs font-mono font-semibold tabular-nums text-slate-900 bg-slate-100 px-2.5 py-1 rounded border border-slate-200">
               {formatNumber(total)} bản ghi
             </div>
           </div>
@@ -148,7 +160,14 @@ export const InventoryTab = () => {
 
       {/* 2. Top 10 Alerts Table Section */}
       <Card
-        title="Top 10 Cảnh Báo Tồn Kho Khẩn Cấp"
+        title="Danh sách Top 10 Cảnh báo Tồn kho Ưu tiên"
+        subtitle="Ưu tiên trích xuất các mã Low Stock (Cover < 14 ngày) trước khi liệt kê Overstock (Cover ≥ 60 ngày)"
+        noPadding
+        action={
+          <span className="text-[11px] font-mono text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+            Top {alerts.length} / 10
+          </span>
+        }
       >
         <InventoryAlertsTable alerts={alerts} isLoading={isLoadingAlerts} />
       </Card>

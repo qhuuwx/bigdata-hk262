@@ -1,43 +1,41 @@
 /* ==============================================================================
-   Global Typography & UI Refinements
-   Font Family: Inter (High-clarity Grotesque Sans) with Tabular Numbers
+   Institutional Design System & Typography
+   Primary UI: Inter | Quantitative & Identifiers: JetBrains Mono (Tabular)
    ============================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-
-/* Force Inter on ALL elements without exception */
-*, *::before, *::after,
-html, body, #root,
-h1, h2, h3, h4, h5, h6,
-p, span, div, a, label,
-button, input, select, textarea,
-table, thead, tbody, tr, th, td {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+html, body, #root {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  color: #0f172a;
 }
 
-/* Tabular figures for numbers, currency, and quantities */
-.font-mono, .tabular-nums, table td, .metric-number {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+.font-mono {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-variant-numeric: tabular-nums lining-nums;
 }
 
-/* Custom scrollbar */
+.tabular-nums,
+table td.num,
+.metric-number {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Subtle institutional scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(241, 245, 249, 0.6);
+  background: #f1f5f9;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.5);
-  border-radius: 9999px;
+  background: #cbd5e1;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.8);
+  background: #94a3b8;
 }

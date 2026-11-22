@@ -1,7 +1,5 @@
 ﻿/**
  * Root Application Shell Component
- * Integrates Left Sidebar, Top Header, Tab Views, and ToastProvider.
- * Sidebar collapse state is locally managed with useState.
  */
 
 import React, { useState } from 'react';
@@ -22,18 +20,14 @@ const AppContent = () => {
   };
 
   return (
-    <div className="flex h-screen bg-[#F8FAFC] text-slate-800 font-sans overflow-hidden">
-      {/* 1. Left Sidebar Navigation */}
+    <div className="flex h-screen bg-[#F8FAFC] text-slate-900 font-sans overflow-hidden">
       <Sidebar isCollapsed={isSidebarCollapsed} onToggle={toggleSidebar} />
 
-      {/* 2. Main Viewport */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        {/* Top Header */}
+      <div className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
         <Header onToggleSidebar={toggleSidebar} />
 
-        {/* Tab View Container */}
-        <main className="flex-1 p-6 overflow-y-auto">
-          <div className="max-w-7xl mx-auto pb-12">
+        <main className="flex-1 px-6 py-5 overflow-y-auto">
+          <div className="max-w-[1400px] mx-auto pb-10">
             {activeTab === 'tab-eda' && <EdaTab />}
             {activeTab === 'tab-forecast' && <ForecastTab />}
             {activeTab === 'tab-inventory' && <InventoryTab />}

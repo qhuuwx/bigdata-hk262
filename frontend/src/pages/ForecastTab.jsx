@@ -22,6 +22,7 @@ export const ForecastTab = () => {
     setSelectedStore,
     periods,
     setPeriods,
+    handlePeriodBlur,
     forecastResult,
     isLoadingMeta,
     isForecasting,
@@ -29,53 +30,64 @@ export const ForecastTab = () => {
     runForecast
   } = useForecast();
 
-  // Biểu đồ so sánh 2 đường Normal vs Super Forecast
-  const lineChartData = forecastResult ? {
-    labels: forecastResult.periods || [],
-    datasets: [
-      {
-        label: 'Normal Forecast (SMA)',
-        data: forecastResult.normalForecast || [],
-        borderColor: CHART_COLORS.blue,
-        backgroundColor: CHART_COLORS.blueFill,
-        borderWidth: 2.5,
-        tension: 0.2,
-        pointRadius: 4
-      },
-      {
-        label: 'Super Forecast (WMA + Seasonality)',
-        data: forecastResult.superForecast || [],
-        borderColor: CHART_COLORS.orange,
-        backgroundColor: CHART_COLORS.orangeFill,
-        borderWidth: 2.5,
-        tension: 0.2,
-        pointRadius: 4
+  const lineChartData = forecastResult
+    ? {
+        labels: forecastResult.periods || [],
+        datasets: [
+          {
+            label: 'Normal Forecast (SMA, N=4)',
+            data: forecastResult.normalForecast || [],
+            borderColor: CHART_COLORS.blue,
+            backgroundColor: CHART_COLORS.blueFill,
+            borderWidth: 2,
+            tension: 0.2,
+            pointRadius: 3.5,
+            pointBackgroundColor: '#ffffff',
+            pointBorderColor: CHART_COLORS.blue,
+            pointBorderWidth: 1.5
+          },
+          {
+            label: 'Super Forecast (WMA [1,2,3,4] + Mùa vụ)',
+            data: forecastResult.superForecast || [],
+            borderColor: CHART_COLORS.orange,
+            backgroundColor: CHART_COLORS.orangeFill,
+            borderWidth: 2,
+            tension: 0.2,
+            pointRadius: 3.5,
+            pointBackgroundColor: '#ffffff',
+            pointBorderColor: CHART_COLORS.orange,
+            pointBorderWidth: 1.5
+          }
+        ]
       }
-    ]
-  } : null;
+    : null;
 
   return (
-    <div className="space-y-6">
-      {/* 1. Interactive Form Control Card */}
+    <div className="space-y-5">
+      {/* 1. Parameter Configuration Bar */}
       <Card
-        title="Dự Báo Nhu Cầu Bán Lẻ"
-        subtitle="Chọn Danh mục sản phẩm, Cửa hàng và Số kỳ tương lai"
+        title="Tham số Mô hình Dự báo Nhu cầu"
+        subtitle="Thiết lập cặp Danh mục — Cửa hàng và độ dài chân trời dự báo (4 đến 24 kỳ)"
       >
-        {error && <div className="mb-4"><ErrorAlert message={error} /></div>}
+        {error && (
+          <div className="mb-4">
+            <ErrorAlert message={error} />
+          </div>
+        )}
 
         {isLoadingMeta ? (
-          <LoadingSpinner text="Đang nạp danh mục và cửa hàng..." size="sm" />
+          <LoadingSpinner text="Đang tải danh mục sản phẩm và mã cửa hàng..." size="sm" />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
             {/* Category Dropdown */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-                Product Category
+            <div className="md:col-span-5">
+              <label className="block text-[11px] font-medium text-slate-600 mb-1.5">
+                Danh mục sản phẩm (Product Category)
               </label>
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white"
+                className="w-full h-9 bg-white border border-slate-300 rounded-md px-3 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
               >
                 {categories.map((cat) => (
                   <option key={cat} value={cat}>
@@ -86,14 +98,14 @@ export const ForecastTab = () => {
             </div>
 
             {/* Store Dropdown */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-                Store ID
+            <div className="md:col-span-3">
+              <label className="block text-[11px] font-medium text-slate-600 mb-1.5">
+                Mã cửa hàng (Store ID)
               </label>
               <select
                 value={selectedStore}
                 onChange={(e) => setSelectedStore(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white"
+                className="w-full h-9 bg-white border border-slate-300 rounded-md px-3 text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
               >
                 {stores.map((st) => (
                   <option key={st} value={st}>
@@ -104,9 +116,9 @@ export const ForecastTab = () => {
             </div>
 
             {/* Forecast Periods Input */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-                Số kỳ dự báo (4 - 24)
+            <div className="md:col-span-2">
+              <label className="block text-[11px] font-medium text-slate-600 mb-1.5">
+                Số kỳ dự báo (4–24)
               </label>
               <input
                 type="number"
@@ -114,25 +126,35 @@ export const ForecastTab = () => {
                 max="24"
                 value={periods}
                 onChange={(e) => setPeriods(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white font-mono"
+                onBlur={handlePeriodBlur}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    runForecast();
+                  }
+                }}
+                className="w-full h-9 bg-white border border-slate-300 rounded-md px-3 text-xs font-mono tabular-nums text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
               />
             </div>
 
-            {/* Submit Action Button */}
-            <div>
+            {/* Submit Button */}
+            <div className="md:col-span-2">
               <button
                 onClick={runForecast}
                 disabled={isForecasting}
-                className="w-full bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white font-semibold uppercase tracking-wider py-2 px-4 rounded-lg text-xs transition-all shadow-md shadow-sky-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full h-9 bg-slate-900 hover:bg-slate-800 text-white font-medium px-4 rounded-md text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isForecasting ? (
                   <>
                     <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Đang tính toán...</span>
+                    <span>Đang tính...</span>
                   </>
                 ) : (
                   <>
-                    <span>Dự Báo Ngay</span>
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                    </svg>
+                    <span>Chạy dự báo</span>
                   </>
                 )}
               </button>
@@ -143,19 +165,23 @@ export const ForecastTab = () => {
 
       {/* 2. Forecast Results Section */}
       {forecastResult && (
-        <div className="space-y-6">
-          {/* Dual Line Chart */}
+        <div className="space-y-5">
           <Card
-            title="Biểu Đồ So Sánh Dự Báo (Normal vs Super Forecast)"
-            subtitle={`Đường xanh: Normal Forecast (SMA, N=4) | Đường cam: Super Forecast (WMA [1,2,3,4] + Mùa vụ)`}
+            title="Biểu đồ Đối chiếu Quỹ đạo Dự báo (Normal vs. Super Forecast)"
+            subtitle={`Danh mục: ${selectedCategory} · Cửa hàng: ${selectedStore} · Chân trời: ${forecastResult.periods?.length || periods} kỳ`}
           >
-            <LineChart data={lineChartData} height={300} />
+            <LineChart data={lineChartData} height={290} />
           </Card>
 
-          {/* 8 Differing Rows Comparison Table */}
           <Card
-            title="Bảng Đối Soát 8 Kỳ Khác Biệt Đầu Tiên"
-            subtitle="Chỉ liệt kê tối đa 8 kỳ có giá trị sai khác giữa 2 thuật toán (làm tròn toFixed(2) trước khi so sánh)"
+            title="Bảng Đối soát Các Kỳ Sai khác Đầu tiên"
+            subtitle="Trích xuất tối đa 8 kỳ có giá trị dự báo khác nhau sau khi chuẩn hóa hai chữ số thập phân (toFixed(2))"
+            noPadding
+            action={
+              <span className="text-[11px] font-mono text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                {forecastResult.differences?.length || 0} / 8 kỳ lệch
+              </span>
+            }
           >
             <ForecastDiffTable differences={forecastResult.differences} />
           </Card>
