@@ -9,7 +9,8 @@ const { CONSTANTS } = require('../config');
 class SalesStreamService {
   /**
    * Generates a sample of random sales transactions.
-   * @param {number} [batchSize=20] 
+   * Safely handles invalid, non-positive, or oversized batchSize parameters.
+   * @param {number} [batchSize=20]
    * @returns {Array<Object>}
    */
   getSalesStream(batchSize = CONSTANTS.STREAM.SALES_BATCH_SIZE) {
@@ -18,7 +19,13 @@ class SalesStreamService {
       return [];
     }
 
-    const count = Math.min(batchSize, sales.length);
+    const parsedSize = Number(batchSize);
+    if (!Number.isFinite(parsedSize) || parsedSize <= 0) {
+      return [];
+    }
+
+    const safeBatchSize = Math.min(Math.floor(parsedSize), 500);
+    const count = Math.min(safeBatchSize, sales.length);
     const sample = [];
     const seen = new Set();
 

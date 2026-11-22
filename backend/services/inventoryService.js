@@ -19,38 +19,52 @@ class InventoryService {
   }
 
   /**
-   * Returns current copy of cumulative state.
+   * Returns current snapshot copy of cumulative state.
    */
   getCumulativeState() {
-    const total = this._cumulativeState.healthy + this._cumulativeState.low + this._cumulativeState.over;
+    const { healthy, low, over } = this._cumulativeState;
     return {
-      healthy: this._cumulativeState.healthy,
-      low: this._cumulativeState.low,
-      over: this._cumulativeState.over,
-      total
+      healthy,
+      low,
+      over,
+      total: healthy + low + over
     };
   }
 
   /**
-   * Resets cumulative inventory counts (useful for testing and benchmark resets).
+   * Resets cumulative inventory counts atomically.
    */
   resetCumulativeState() {
-    this._cumulativeState.healthy = 0;
-    this._cumulativeState.low = 0;
-    this._cumulativeState.over = 0;
+    this._cumulativeState = {
+      healthy: 0,
+      low: 0,
+      over: 0
+    };
     return this.getCumulativeState();
   }
 
   /**
    * Streams a batch of 50 inventory records, classifies each using algorithms/classify,
-   * accumulates into persistent state, and returns updated totals.
+   * accumulates into persistent state atomically, and returns updated totals.
+   * Safely handles non-positive, NaN, or oversized batchSize arguments.
    * @param {number} [batchSize=50]
    */
   processStreamBatch(batchSize = CONSTANTS.INVENTORY.STREAM_BATCH_SIZE) {
     const inventory = dataLoaderService.getRawInventory();
+    const parsedSize = Number(batchSize);
+
+    if (!Number.isFinite(parsedSize) || parsedSize <= 0) {
+      return this.getCumulativeState();
+    }
+
+    const safeBatchSize = Math.min(Math.floor(parsedSize), 5000);
 
     if (inventory && inventory.length > 0) {
-      for (let i = 0; i < batchSize; i++) {
+      let batchHealthy = 0;
+      let batchLow = 0;
+      let batchOver = 0;
+
+      for (let i = 0; i < safeBatchSize; i++) {
         const idx = Math.floor(Math.random() * inventory.length);
         const item = inventory[idx];
         const prodNo = item['Product No'];
@@ -61,13 +75,17 @@ class InventoryService {
         const status = classifyInventory(qtyOnHand, avgDailySales);
 
         if (status === CONSTANTS.INVENTORY.STATUS.HEALTHY) {
-          this._cumulativeState.healthy++;
+          batchHealthy++;
         } else if (status === CONSTANTS.INVENTORY.STATUS.LOW) {
-          this._cumulativeState.low++;
+          batchLow++;
         } else if (status === CONSTANTS.INVENTORY.STATUS.OVER) {
-          this._cumulativeState.over++;
+          batchOver++;
         }
       }
+
+      this._cumulativeState.healthy += batchHealthy;
+      this._cumulativeState.low += batchLow;
+      this._cumulativeState.over += batchOver;
     }
 
     return this.getCumulativeState();

@@ -18,7 +18,7 @@ const app = express();
 
 // 1. Global Pre-Routing Middlewares
 app.use(corsMiddleware);
-app.use(express.json());
+app.use(express.json({ limit: '100kb' }));
 app.use(logger);
 
 // 2. Serve static frontend assets

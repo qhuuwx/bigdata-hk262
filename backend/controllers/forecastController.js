@@ -31,7 +31,13 @@ class ForecastController {
    * Returns dual algorithm forecasts and up to 8 differences.
    */
   runForecast(req, res) {
-    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body) || Object.keys(req.body).length === 0) {
+    if (
+      !req.body ||
+      typeof req.body !== 'object' ||
+      Array.isArray(req.body) ||
+      Object.prototype.toString.call(req.body) !== '[object Object]' ||
+      Object.keys(req.body).length === 0
+    ) {
       return res.status(CONSTANTS.HTTP_STATUS.BAD_REQUEST).json({
         error: 'Request body is required'
       });
@@ -39,15 +45,17 @@ class ForecastController {
 
     const { category, store, periods } = req.body;
 
-    if (!category || typeof category !== 'string' || !category.trim()) {
+    const maxLen = CONSTANTS.FORECAST.MAX_INPUT_LENGTH || 200;
+
+    if (!category || typeof category !== 'string' || !category.trim() || category.trim().length > maxLen) {
       return res.status(CONSTANTS.HTTP_STATUS.BAD_REQUEST).json({
-        error: 'Category is required and must be a non-empty string'
+        error: `Category is required and must be a non-empty string (max ${maxLen} chars)`
       });
     }
 
-    if (!store || typeof store !== 'string' || !store.trim()) {
+    if (!store || typeof store !== 'string' || !store.trim() || store.trim().length > maxLen) {
       return res.status(CONSTANTS.HTTP_STATUS.BAD_REQUEST).json({
-        error: 'Store is required and must be a non-empty string'
+        error: `Store is required and must be a non-empty string (max ${maxLen} chars)`
       });
     }
 
