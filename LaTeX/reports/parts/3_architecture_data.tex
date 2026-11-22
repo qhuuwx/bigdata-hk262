@@ -1,0 +1,135 @@
+\part{Kiến trúc hệ thống và Đường ống dữ liệu trên RAM}
+\label{part:ch3}
+
+Từ các đặc trưng dữ liệu đã phân tích ở Chương~\ref{part:ch2}, hệ thống \texttt{bigdata\_inventory} được thiết kế theo hướng xử lý hoàn toàn trên bộ nhớ chính (\textit{in-memory analytics}) kết hợp kiến trúc sạch (\textit{Clean Architecture})~\cite{martin2017clean}. Mục~\ref{sec:ch3-arch} trình bày phân tầng Backend $7$ lớp và Frontend SPA tách ngữ cảnh. Mục~\ref{sec:ch3-pipeline} mô tả đường ống nạp luồng CSV lúc khởi động cùng $6$ cấu trúc chỉ mục trên RAM. Mục~\ref{sec:ch3-guard} phân tích cơ chế bảo vệ sẵn sàng (\texttt{readinessGuard}) và kiểm soát chất lượng luồng nhập.
+
+\medskip
+
+Để bảo đảm hai mục tiêu cốt lõi là \textit{tốc độ phản hồi thời gian thực trên dữ liệu lớn} và \textit{độ tin cậy vận hành toàn stack}, Hình~\ref{fig:ishikawa_fullstack} phân tích cấu trúc nhân -- quả theo sơ đồ xương cá (\textit{Ishikawa diagram}) qua $6$ trụ cột kỹ thuật từ tầng dữ liệu đến tầng kiểm thử.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.98\linewidth, height=0.42\textheight, keepaspectratio]{diagrams/ishikawa_fullstack.svg.pdf}
+	\caption{Sơ đồ Ishikawa phân tích các trụ cột chất lượng toàn stack của hệ thống}
+	\label{fig:ishikawa_fullstack}
+\end{figure}
+
+\section{Kiến trúc sạch 7 tầng và Thiết kế tách lớp}
+\label{sec:ch3-arch}
+Hình~\ref{fig:system_architecture} minh họa kiến trúc tổng thể giữa trình duyệt React 18 SPA, lớp ủy quyền ngược Nginx và máy chủ Node.js Express. Thay vì truy vấn đĩa lặp lại hoặc triển khai hệ quản trị cơ sở dữ liệu cồng kềnh cho $410.506$ bản ghi, toàn bộ dữ liệu nguồn được nạp một lần vào RAM giúp độ trễ phục vụ API đạt mức dưới mili-giây.
+
+\begin{figure}[H]
+	\centering
+	\mermaidfile[width=0.95\linewidth, keepaspectratio]{diagrams/system_architecture.mmd}
+	\caption{Kiến trúc tổng thể hệ thống \texttt{bigdata\_inventory}}
+	\label{fig:system_architecture}
+\end{figure}
+
+Tại phía máy chủ (\texttt{backend/}), mã nguồn tuân thủ nguyên tắc phụ thuộc hướng tâm của kiến trúc sạch qua $7$ tầng tách biệt:
+\begin{enumerate}[label=\textit{\arabic*},topsep=0pt, itemsep=1pt]
+	\item \textbf{Tầng cấu hình (\texttt{config/}):} Tập trung hằng số nghiệp vụ trong \texttt{constants.js} (cửa sổ $N=4$, trọng số $[1, 2, 3, 4]$, ngưỡng $14$/$60$ ngày, giới hạn LRU cache $1.500$, độ dài chuỗi tối đa $200$ ký tự, chu kỳ $2.000\text{ ms}$) và biến môi trường trong \texttt{env.js}.
+	\item \textbf{Tầng thuật toán lõi (\texttt{algorithms/}):} Chứa ba mô-đun \texttt{forecast.js}, \texttt{forecastsuper.js} và \texttt{classify.js}. Mọi hàm đều là hàm thuần túy (\textit{pure functions}), \textbf{không} chứa lệnh \texttt{require} từ tầng khác; các mô-đun gốc \texttt{algorithms/*} và \texttt{backend/dataLoader.js} đóng vai trò facade ủy quyền về cùng một nguồn chân lý duy nhất.
+	\item \textbf{Tầng tiện ích (\texttt{utils/}):} Cung cấp bộ phân tách \texttt{parseCSVLine}, hàm làm tròn \texttt{roundTo}, tính phần trăm lệch \texttt{calcDiffPercent} và trình bao bắt lỗi bất đồng bộ \texttt{asyncWrapper}.
+	\item \textbf{Tầng dịch vụ (\texttt{services/}):} Gồm \texttt{dataLoaderService}, \texttt{salesStreamService}, \texttt{edaService}, \texttt{forecastService} và \texttt{inventoryService}. Tầng này tự quản lý chỉ mục, bộ nhớ đệm và trạng thái tích lũy, tách biệt hoàn toàn với đối tượng HTTP \texttt{req}/\texttt{res}.
+	\item \textbf{Tầng điều khiển (\texttt{controllers/}):} Tiếp nhận yêu cầu, kiểm tra hợp lệ đầu vào (kiểu đối tượng thuần, độ dài $\le 200$ ký tự, số kỳ $4 \le \text{periods} \le 24$), gọi tầng dịch vụ và đóng gói JSON trả về.
+	\item \textbf{Tầng định tuyến (\texttt{routes/}):} Ánh xạ đường dẫn REST API vào controller tương ứng, không chứa logic nghiệp vụ.
+	\item \textbf{Tầng trung gian (\texttt{middleware/}):} Gồm \texttt{cors.js}, \texttt{logger.js}, \texttt{readinessGuard.js} và \texttt{errorHandler.js} (giới hạn thân JSON $100\text{ KB}$, bắt lỗi cú pháp \texttt{400} và quá tải \texttt{413}), lắp ráp theo thứ tự nghiêm ngặt trong \texttt{app.js}.
+\end{enumerate}
+
+\indent Ở phía giao diện (\texttt{frontend/src/}), ứng dụng React 18 SPA áp dụng cấu trúc mô-đun hóa chống ``God Context'': \texttt{AppContext.jsx} chỉ quản lý thẻ đang mở (\texttt{activeTab}) và trạng thái kết nối máy chủ (\texttt{backendStatus} kiểm tra mỗi $5\text{ s}$ qua \texttt{/api/health}), còn \texttt{ToastContext.jsx} quản lý thông báo độc lập. Các hook (\texttt{useEdaData}, \texttt{useForecast}, \texttt{useInventoryStream}, \texttt{useSalesStream}) duy trì bộ nhớ đệm cấp mô-đun để giữ nguyên trạng thái khi chuyển thẻ, kèm cơ chế hủy \texttt{AbortController}, chống tranh chấp thứ tự phản hồi (\textit{race guard}) và tự động tải lại ngay khi \texttt{backendStatus} chuyển từ \texttt{loading} (\texttt{503}) sang \texttt{ready}. Tệp \texttt{apiConfig.js} tự động nhận diện URL gốc theo môi trường chạy: trả về \texttt{http://localhost:3000} khi chạy phát triển trên các cổng \texttt{3001}, \texttt{5173}, \texttt{8080}, \texttt{5500} hoặc \texttt{file://}, và trả về chuỗi rỗng \texttt{""} để dùng đường dẫn tương đối \texttt{/api} khi chạy sau proxy Nginx trong Docker.
+
+\section{Đường ống nạp luồng và Lập chỉ mục trên bộ nhớ}
+\label{sec:ch3-pipeline}
+Khi khởi chạy \texttt{backend/server.js}, hàm \texttt{startServer()} mở cổng HTTP \texttt{3000} ngay lập tức rồi chạy tiến trình nạp dữ liệu hai lượt tuyến tính \texttt{dataLoaderService.init()} trên thư mục \texttt{DATA\_DIR} (Hình~\ref{fig:data_pipeline}). Nhờ mở cổng trước khi nạp xong, \texttt{/api/health} phản hồi ngay trạng thái \texttt{'loading'} còn \texttt{readinessGuard} chặn các truy vấn nghiệp vụ bằng mã \texttt{503} trong suốt $2{,}5$--$3{,}3$ giây khởi tạo, đồng thời \texttt{server.js} hỗ trợ tắt máy chủ an toàn (\textit{graceful shutdown}) khi nhận tín hiệu \texttt{SIGTERM}/\texttt{SIGINT}.
+
+\begin{figure}[H]
+	\centering
+	\mermaidfile[width=0.95\linewidth, keepaspectratio]{diagrams/data_pipeline.mmd}
+	\caption{Đường ống nạp dữ liệu luồng và dựng $6$ chỉ mục RAM khi khởi động}
+	\label{fig:data_pipeline}
+\end{figure}
+
+Đường ống sử dụng thư viện \texttt{csv-parser} để đọc luồng (\textit{stream parsing}) không chặn bộ nhớ đệm lớn, kèm cơ chế dự phòng bằng \texttt{readline} kết hợp hàm \texttt{parseCSVLine} chuẩn RFC 4180 (Mã nguồn~\ref{lst:csv-parser}) nhằm xử lý các chuỗi mô tả sản phẩm chứa dấu ngoặc kép lồng nhau.
+
+\begin{listing}[H]
+	\begin{minted}[fontsize=\footnotesize, linenos, breaklines]{javascript}
+function parseCSVLine(line) {
+  if (typeof line !== 'string') return [];
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      result.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current);
+  return result;
+}
+\end{minted}
+	\caption{Bộ phân tách CSV chuẩn RFC 4180 trong \texttt{backend/utils/csvParser.js}}
+	\label{lst:csv-parser}
+\end{listing}
+
+Sau khi phân tách hai tập tin, \texttt{DataLoaderService} dựng đồng thời các cấu trúc dữ liệu và bộ nhớ đệm trên RAM (Bảng~\ref{tab:ram-structures}), giúp các yêu cầu sau đó chỉ thực hiện tra cứu $O(1)$ hoặc quét mảng kết quả tiền tính toán.
+
+\begin{table}[H]
+	\centering
+	\caption{Các cấu trúc lưu trữ và chỉ mục nội bộ của \texttt{DataLoaderService}}
+	\label{tab:ram-structures}
+	\footnotesize
+	\setlength{\tabcolsep}{4pt}
+	\begin{tabular}{p{5.2cm} p{2.8cm} p{7.0cm}}
+		\toprule
+		\textbf{Thuộc tính nội bộ}      & \textbf{Kiểu dữ liệu}        & \textbf{Vai trò và cách xây dựng}                                                                                                          \\
+		\midrule
+		\texttt{\_rawSales}             & \texttt{Array<Object>}       & Lưu toàn bộ $125.751$ giao dịch bán hàng phục vụ lấy mẫu streaming.                                                                        \\
+		\texttt{\_rawInventory}         & \texttt{Array<Object>}       & Lưu toàn bộ $284.755$ bản ghi tồn kho phục vụ streaming theo lô $50$ dòng.                                                                 \\
+		\texttt{\_prodSales30dMap}      & \texttt{Map<string, number>} & Ánh xạ \texttt{Product No} sang tổng \texttt{Qty Sold} trong $30$ ngày cuối (\texttt{2026-03-25} -- \texttt{2026-04-24}).                  \\
+		\texttt{\_monthlyHistoryCache}  & \texttt{Map<string, Object>} & Tiền tính toán chuỗi $11$ tháng (điền $0$ tháng khuyết), \texttt{monthlyAvg} và \texttt{overallAvg} cho mỗi cặp \texttt{category:::store}. \\
+		\texttt{\_edaCache}             & \texttt{Object}              & Tiền tính toán $4$ tập dữ liệu: \texttt{revenueTrend}, \texttt{topCategories}, \texttt{channelSplit}, \texttt{returnRate}.                 \\
+		\texttt{\_inventoryAlertsCache} & \texttt{Array<Object>}       & Top $10$ cảnh báo đã khử trùng cặp \textit{(Category, Store)}, giữ tối đa $3$ \textit{Overstock} sau nhóm \textit{Low Stock}.              \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\section{Bảo vệ Trạng thái khởi động và Xử lý biên dữ liệu}
+\label{sec:ch3-guard}
+Để ngăn chặn lỗi truy vấn rỗng khi container vừa khởi động hoặc trong quá trình nạp dữ liệu CSV, \texttt{app.js} gắn lớp trung gian \texttt{readinessGuard} trước toàn bộ nhóm đường dẫn \texttt{/api} (Mã nguồn~\ref{lst:readiness-guard}). Ngoại trừ \texttt{/api/health} luôn được thông qua để Docker healthcheck và giao diện theo dõi tiến trình nạp, mọi truy vấn khác khi \texttt{isReady() === false} sẽ nhận mã \texttt{HTTP 503 SERVICE\_UNAVAILABLE}.
+
+\begin{listing}[H]
+	\begin{minted}[fontsize=\footnotesize, linenos, breaklines]{javascript}
+function createReadinessGuard(dataLoaderService) {
+  return function readinessGuard(req, res, next) {
+    if (req.path === '/api/health' || req.path === '/health') {
+      return next();
+    }
+    if (!dataLoaderService.isReady()) {
+      return res.status(CONSTANTS.HTTP_STATUS.SERVICE_UNAVAILABLE).json({
+        success: false,
+        error: {
+          code: 'SERVICE_UNAVAILABLE',
+          message: 'Service is initializing: CSV datasets are being loaded into memory'
+        }
+      });
+    }
+    next();
+  };
+}
+\end{minted}
+	\caption{Lớp bảo vệ trạng thái sẵn sàng trong \texttt{backend/middleware/readinessGuard.js}}
+	\label{lst:readiness-guard}
+\end{listing}
+
+Ngoài ra, đường ống xử lý còn giải quyết hai trường hợp biên thực tế: (1) nếu cặp \textit{(Product Category, Store)} không có giao dịch lịch sử trong \texttt{\_monthlyHistoryCache}, hàm \texttt{getMonthlySalesHistory} trả về chuỗi $0$ đủ độ dài toàn trục tháng của tập dữ liệu ($11$ tháng) và mảng trung bình $12$ tháng toàn $0$ để thuật toán dự báo không bị lỗi; (2) mọi trường số dạng chuỗi $4$ chữ số thập phân (như \texttt{"115.0000"}) đều được ép kiểu an toàn qua \texttt{Number(val) || 0}.

@@ -1,0 +1,74 @@
+\pagenumbering{Roman}
+\fancyfoot[C]{
+	\ttfamily
+	\thepage
+}
+
+\part*{Lời cam đoan}
+Nhóm sinh viên thực hiện xin cam đoan toàn bộ nội dung trong báo cáo bài tập lớn môn \textbf{Phân tích Dữ liệu lớn và Trí tuệ Kinh Doanh (CO4033)} là kết quả nghiên cứu, thiết kế và cài đặt nghiêm túc của tập thể nhóm dưới sự hướng dẫn của \textbf{Thạc sĩ Bùi Tiến Đức}. Cụ thể, nhóm cam kết:
+\begin{itemize}[topsep=4pt, itemsep=3pt]
+	\item \textbf{Tính nguyên bản của mã nguồn và hệ thống:} Toàn bộ kiến trúc máy chủ (\textit{Clean Architecture} $7$ tầng), giao diện phân tích React 18 SPA, kịch bản kiểm toán EDA và bộ kiểm thử tự động trong kho lưu trữ \href{https://github.com/qhuuwx/bigdata-hk262}{\texttt{bigdata\_inventory}} đều do nhóm trực tiếp xây dựng, tái cấu trúc và kiểm chứng.
+	\item \textbf{Tính trung thực của số liệu và thực nghiệm:} Mọi bảng thống kê khám phá dữ liệu, kết quả đối chiếu dự báo nhu cầu, phân bố sức khỏe tồn kho và kết quả kiểm thử chịu tải được trích xuất trực tiếp từ hai tập tin thuộc bộ dữ liệu công khai \textit{Retail Transactions and Stocks Data}~\cite{smith2026retail} bằng mã nguồn thực thi của hệ thống, không chỉnh sửa hay ngụy tạo số liệu.
+	\item \textbf{Tuân thủ liêm chính học thuật:} Mọi tài liệu khoa học, chuẩn kỹ thuật, thư viện mã nguồn mở và bộ dữ liệu của bên thứ ba được sử dụng đều có trích dẫn rõ ràng trong phần Tài liệu tham khảo.
+\end{itemize}
+
+\medskip
+
+Nhóm xin hoàn toàn chịu trách nhiệm trước giảng viên hướng dẫn và Khoa Khoa học và Kỹ thuật Máy tính về tính chính xác và trung thực của báo cáo này.
+
+\newpage\part*{Lời cảm ơn}
+Lời đầu tiên, nhóm sinh viên thực hiện xin gửi lời tri ân sâu sắc đến \textbf{Thạc sĩ Bùi Tiến Đức} --- giảng viên hướng dẫn môn \textit{Phân tích Dữ liệu lớn và Trí tuệ Kinh Doanh (CO4033)}. Những bài giảng tâm huyết, định hướng tư duy kiến trúc hệ thống dữ liệu và các góp ý chuyên môn sắc bén của thầy là kim chỉ nam giúp nhóm chuyển hóa bài toán quản trị chuỗi bán lẻ thành một hệ thống phần mềm hoàn chỉnh, chặt chẽ và có tính kiểm chứng cao.
+
+\medskip
+
+Nhóm xin trân trọng cảm ơn \textbf{Khoa Khoa học và Kỹ thuật Máy tính}, Trường Đại học Bách khoa -- Đại học Quốc gia Thành phố Hồ Chí Minh đã xây dựng chương trình đào tạo gắn liền giữa nền tảng học thuật và thực hành kỹ thuật phần mềm hiện đại, tạo điều kiện thuận lợi để nhóm hoàn thành đồ án môn học này.
+
+\medskip
+
+Nhóm cũng xin cảm ơn tác giả \textbf{Jimmy Smith} đã công bố bộ dữ liệu \textit{Retail Transactions and Stocks Data}~\cite{smith2026retail} làm cơ sở thực nghiệm tin cậy, cùng cộng đồng phát triển mã nguồn mở của các công nghệ nền tảng (Node.js, Express, React, Chart.js, Docker và \LaTeX) đã hỗ trợ hiệu quả cho quá trình hiện thực và trình bày báo cáo. Cuối cùng, xin cảm ơn sự phối hợp nghiêm túc, tinh thần trách nhiệm và hỗ trợ lẫn nhau của tất cả thành viên trong nhóm trong suốt quá trình thực hiện.
+
+\medskip
+
+Dù đã nỗ lực kiểm tra kỹ lưỡng ở cả khâu mã nguồn lẫn nội dung trình bày, báo cáo khó tránh khỏi những hạn chế nhất định về góc nhìn thực tiễn. Nhóm rất mong nhận được những ý kiến nhận xét quý báu từ thầy để tiếp tục hoàn thiện kiến thức và kỹ năng nghề nghiệp.
+
+\newpage\part*{Tóm tắt}
+Báo cáo trình bày thiết kế, hiện thực và kiểm chứng hệ thống \texttt{bigdata\_inventory} --- nền tảng phân tích dữ liệu bán lẻ thời gian thực, dự báo nhu cầu và quản lý tồn kho thông minh cho chuỗi bán lẻ giày dép và trang phục. Hệ thống xử lý hai tập tin dữ liệu nguồn gồm $125.751$ bản ghi giao dịch bán hàng (\texttt{retail\_sales\_ml\_apl.csv}) và $284.755$ bản ghi tồn kho (\texttt{retail\_inventory\_ml\_apl.csv}), tổng cộng $410.506$ bản ghi trên $27$ danh mục sản phẩm và $40$ cửa hàng. Phần máy chủ (\textit{backend}) được xây dựng bằng Node.js và Express theo kiến trúc sạch $7$ tầng (\textit{Clean Architecture}), mở cổng HTTP ngay khi khởi động và bảo vệ truy cập bằng \texttt{readinessGuard} (\texttt{HTTP 503}) trong suốt quá trình nạp luồng dữ liệu vào RAM ($2{,}5$--$3{,}3\text{ s}$). Giao diện người dùng (\textit{frontend}) là ứng dụng trang đơn (\textit{SPA}) viết bằng React 18, Vite 5, Tailwind CSS và Chart.js 4, triển khai đóng gói qua Docker Compose và Nginx.
+
+\medskip
+
+Ứng dụng tổ chức thành ba phân hệ tương ứng với ba thẻ chức năng trên giao diện định lượng. Thẻ \textbf{EDA \& Streaming} mô phỏng luồng giao dịch trực tiếp ($20$ bản ghi mỗi $2$ giây, giữ tối đa $100$ dòng) kết hợp bốn biểu đồ khám phá dữ liệu (doanh thu theo tháng, top $10$ danh mục bán chạy, cơ cấu kênh bán hàng và tỷ lệ hoàn trả theo nhóm sản phẩm). Thẻ \textbf{Dự báo Nhu cầu} cho phép chọn danh mục, cửa hàng và số kỳ ($4$--$24$ kỳ) để chạy song song thuật toán Trung bình trượt đơn giản (SMA, cửa sổ $N=4$) và Trung bình trượt có trọng số kết hợp hệ số mùa vụ (WMA trọng số $[1, 2, 3, 4]$ trên chuỗi $11$ tháng chuẩn hóa, bộ nhớ đệm LRU $1.500$ mục), đồng thời đối soát tối đa $8$ kỳ sai khác đầu tiên sau khi làm tròn hai chữ số thập phân.
+
+\medskip
+
+Thẻ \textbf{Tồn kho Thông minh} phân loại từng bản ghi tồn kho theo số ngày bao phủ nhu cầu dựa trên doanh số trung bình $30$ ngày gần nhất thành ba trạng thái: \textbf{Healthy} ($\ge 14$ ngày hoặc chưa có lịch sử bán), \textbf{Low Stock} ($< 14$ ngày) và \textbf{Overstock} ($\ge 60$ ngày). Máy chủ cộng dồn nguyên tử các lô $50$ bản ghi mỗi $2$ giây vào trạng thái tích lũy trên RAM và cung cấp bảng top $10$ cảnh báo đã khử trùng lặp cặp \textit{(Category, Store)} ($7$ \textit{Low Stock} ưu tiên trước $3$ \textit{Overstock}). Hệ thống đạt $129/129$ bài kiểm thử E2E (\texttt{test\_endpoints.js}), vượt qua $7$ pha chịu tải trong \texttt{stress\_test.js} và xuất báo cáo kiểm toán EDA tái lập qua \texttt{scripts/eda\_report.js}.
+
+\newpage\part*{Cấu trúc mã nguồn}
+\noindent
+\begin{minipage}[c]{0.6\textwidth}
+	\small
+	Mã nguồn dự án được tổ chức theo hướng tách biệt trách nhiệm giữa máy chủ phân tích, ứng dụng giao diện, dữ liệu nguồn, kịch bản kiểm chứng và hạ tầng đóng gói.
+	\begin{table}[H]
+		\centering
+		\scriptsize
+		\setlength{\tabcolsep}{4pt}
+		\begin{tabular}{p{2.5cm} p{1.6cm} p{5cm}}
+			\toprule
+			\textbf{Đường dẫn}                                                     & \textbf{Công nghệ}                  & \textbf{Chức năng chính}                                                                                          \\
+			\midrule
+			\texttt{backend/}                                                      & Node.js, Express                    & Máy chủ Clean Architecture $7$ tầng: nạp CSV vào RAM, bộ nhớ đệm LRU, $12$ REST API và \texttt{readinessGuard}.   \\
+			\texttt{frontend/}                                                     & React 18, Vite, Chart.js            & Giao diện SPA $3$ thẻ, quản lý trạng thái tách ngữ cảnh, \texttt{usePolling} $2\text{ s}$ và thiết kế định lượng. \\
+			\texttt{algorithms/}                                                   & JavaScript thuần                    & Tầng facade xuất lại \texttt{forecast.js} và \texttt{forecastsuper.js} từ \texttt{backend/algorithms/}.           \\
+			\texttt{data/}                                                         & CSV, JSON                           & Hai tập dữ liệu bán lẻ ($410.506$ dòng) và kết quả kiểm toán \texttt{results/eda\_summary.json}.                  \\
+			\texttt{scripts/}                                                      & Node.js CLI                         & Kịch bản tái lập EDA (\texttt{eda\_report.js}) và kiểm thử chịu tải $7$ pha (\texttt{stress\_test.js}).           \\
+			\texttt{test\_endpoints.js}, \texttt{test\_m1.js}                      & Node \texttt{assert}/\texttt{fetch} & Bộ kiểm thử đơn vị và E2E $129$ bài không phụ thuộc thư viện ngoài.                                               \\
+			\texttt{Dockerfile*}, \texttt{docker-compose.yml}, \texttt{nginx.conf} & Docker, Nginx Alpine                & Đóng gói đa container, nén Gzip, \texttt{HEALTHCHECK} IPv4 và ủy quyền ngược \texttt{/api/}.                      \\
+			\texttt{LaTeX/}                                                        & TeX Live, Mermaid                   & Mã nguồn báo cáo khoa học CO4033 (\texttt{reports/main.tex}) và các sơ đồ vector \texttt{.mmd.pdf}.               \\
+			\bottomrule
+		\end{tabular}
+	\end{table}
+\end{minipage}
+\hfill
+\begin{minipage}[c]{0.4\textwidth}
+	\centering
+	\includegraphics[width=\linewidth, keepaspectratio]{diagrams/repo_tree.svg.pdf}
+\end{minipage}

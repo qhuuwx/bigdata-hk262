@@ -1,0 +1,5 @@
+flowchart LR
+    USER["Browser :3001"] --> FE["Frontend (nginx:alpine)\ndist/ + Gzip"]
+    FE -->|"/api/ (90s)"| BE["Backend (node:18-alpine)\n:3000 + CSVs"]
+    BE --- HC["HEALTHCHECK (5s)\n127.0.0.1:3000/api/health"]
+    FE -.->|"service_healthy"| BE

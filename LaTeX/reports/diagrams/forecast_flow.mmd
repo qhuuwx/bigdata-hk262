@@ -1,0 +1,11 @@
+flowchart LR
+    REQ["POST /api/forecast"] --> VAL{"Hợp lệ (<=200 chars, 4..24)?"}
+    VAL -->|"Không"| E400["400 Bad Request"]
+    VAL -->|"Có"| CACHE{"LRU Cache hit (<=1500)?"}
+    CACHE -->|"Có"| RET["Trả JSON"]
+    CACHE -->|"Không"| HIST["Chuỗi 11 tháng"]
+    HIST --> SMA["Normal (SMA, N=4)"]
+    HIST --> WMA["Super (WMA + Mùa vụ)"]
+    SMA --> DIFF["Lọc tối đa 8 kỳ lệch"]
+    WMA --> DIFF
+    DIFF --> RET

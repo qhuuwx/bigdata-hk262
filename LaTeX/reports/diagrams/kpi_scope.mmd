@@ -1,0 +1,7 @@
+flowchart TD
+    S["Sales (125.751)"] --> SC1["Toàn lịch sử: EDA & Chuỗi tháng"]
+    S -->|"30 ngày cuối"| AVG["avgDailySales = sales30d / 30"]
+    I["Inventory (284.755)"] --> AVG
+    AVG --> L["Low Stock (< 14d)"]
+    AVG --> H["Healthy (14--60d / bán <= 0)"]
+    AVG --> O["Overstock (>= 60d)"]

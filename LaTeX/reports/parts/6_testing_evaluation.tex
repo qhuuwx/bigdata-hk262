@@ -1,0 +1,96 @@
+\part{Kiểm thử tự động, Đánh giá và Hướng phát triển}
+\label{part:ch6}
+
+Chương này báo cáo kết quả kiểm chứng toàn diện hệ thống \texttt{bigdata\_inventory}. Mục~\ref{sec:ch6-testing} trình bày kiến trúc bộ kiểm thử đa tầng và kết quả thực thi thực tế. Mục~\ref{sec:ch6-traceability} đối chiếu mức độ đáp ứng các câu hỏi nghiệp vụ và yêu cầu chức năng từ Chương~\ref{part:ch1}. Cuối cùng, Mục~\ref{sec:ch6-tradeoffs} phân tích thẳng thắn các đánh đổi kiến trúc, hạn chế hiện tại và đề xuất hướng phát triển tiếp theo.
+
+\section{Kiểm thử tự động đa tầng và Đo đạc hiệu năng}
+\label{sec:ch6-testing}
+\noindent
+\begin{minipage}[c]{0.6\textwidth}
+	\small
+	Hệ thống sở hữu hai bộ kiểm thử hoàn toàn không cần thư viện ngoài (sử dụng trực tiếp \texttt{node:assert} và \texttt{fetch} gốc của Node.js): \texttt{test\_m1.js} kiểm tra nhanh ở cấp thành phần và \texttt{test\_endpoints.js} ($1.640$ dòng) thực hiện kiểm thử đầu cuối (\textit{end-to-end}) gồm $129$ bài kiểm tra phân bố theo kim tự tháp $5$ tầng.
+\end{minipage}
+\hfill
+\begin{minipage}[c]{0.4\textwidth}
+	\centering
+	\mermaidfile[width=\linewidth]{diagrams/test_pyramid.mmd}
+	\captionof{figure}{Cấu trúc kim tự tháp $129$ bài kiểm thử tự động}
+	\label{fig:test_pyramid}
+\end{minipage}
+
+\begin{itemize}[topsep=0pt, itemsep=1pt]
+	\item \textbf{Tier 0 (DataLoader Pipeline):} Kiểm chứng nạp đủ $125.751$ dòng bán hàng, $284.755$ dòng tồn kho, $27$ danh mục, $40$ cửa hàng và tiền tính toán đầy đủ bộ nhớ đệm EDA và Top $10$ cảnh báo.
+	\item \textbf{Tier 1 (Feature Coverage, $55$ bài):} Bao phủ đường đi chuẩn của $11$ tính năng từ \texttt{F1} (\texttt{/api/stream/sales}) đến \texttt{F11} (\texttt{classifyInventory}).
+	\item \textbf{Tier 2 (Boundary \& Corner Cases, $60$ bài):} Kiểm tra đầu vào biên của REST API (kỳ $< 4$, kỳ $> 24$, chuỗi rỗng, kiểu \texttt{boolean}, đường dẫn \texttt{404}) và các biên toán học của thuật toán (lịch sử rỗng, chia $0$, \texttt{Qty on hand} âm, ranh giới chính xác $14 \times \text{avgDailySales}$ và $14 \times \text{avgDailySales} - 0{,}001$, $60 \times \text{avgDailySales}$).
+	\item \textbf{Tier 3 (Cross-Feature Combinations, $5$ bài):} Kiểm chứng tính đơn điệu tăng nghiêm ngặt của \texttt{cumulativeState} qua $4$ lượt gọi liên tiếp, nối luồng dữ liệu từ \texttt{F1} sang \texttt{F6} và đối chiếu chéo toán học.
+	\item \textbf{Tier 4 (Real-World Workflows \& Stress Test, $5$ bài):} Mô phỏng $4$ kịch bản nghiệp vụ người dùng thực tế và bài kiểm tra tải song song $24$ yêu cầu đồng thời (\textit{concurrent requests}).
+\end{itemize}
+
+Bảng~\ref{tab:test-results} tổng hợp kết quả chạy thực tế cả hai chế độ kiểm thử trên môi trường Node.js \texttt{v26.12.1}:
+\begin{itemize}[topsep=0pt, itemsep=1pt]
+	\item Chế độ ngoại tuyến (\texttt{node test\_endpoints.js --unit-only}): Đạt \textbf{$36/36$} bài kiểm thử đơn vị và đường ống nạp dữ liệu trong \textbf{$2{,}52\text{ s}$} ($93$ bài HTTP bỏ qua có chủ đích).
+	\item Chế độ đầy đủ (\texttt{node test\_endpoints.js}): Tự động khởi chạy máy chủ backend, hoàn tất toàn bộ \textbf{$129/129$} bài kiểm thử ($0$ thất bại, $0$ bỏ qua) trong \textbf{$5{,}85\text{ s}$}. Bài kiểm tra chịu tải $24$ yêu cầu đồng thời hoàn tất trong \textbf{$7\text{ ms}$} (thấp hơn rất nhiều so với ngưỡng $500\text{ ms}$).
+\end{itemize}
+
+\begin{table}[H]
+	\centering
+	\footnotesize
+	\setlength{\tabcolsep}{5pt}
+	\begin{tabular}{l c c c c c l}
+		\toprule
+		\textbf{Tầng kiểm thử}    & \textbf{Tổng số} & \makecell[r]{\textbf{Đạt}\\\textbf{(--unit-only)}} & \makecell[r]{\textbf{Đạt}\\\textbf{(Full E2E)}} & \textbf{Thất bại} & \makecell[r]{\textbf{Bỏ qua}\\\textbf{(Full)}} & \textbf{Trạng thái} \\
+		\midrule
+		Tier 0 (DataLoader)       & $4$              & $4$                                                & $4$                                             & $0$               & $0$                                            & \textbf{PASSED}     \\
+		Tier 1 (Features F1--F11) & $55$             & $15$                                               & $55$                                            & $0$               & $0$                                            & \textbf{PASSED}     \\
+		Tier 2 (Boundary Cases)   & $60$             & $17$                                               & $60$                                            & $0$               & $0$                                            & \textbf{PASSED}     \\
+		Tier 3 (Cross-Feature)    & $5$              & $0$                                                & $5$                                             & $0$               & $0$                                            & \textbf{PASSED}     \\
+		Tier 4 (Scenarios/Stress) & $5$              & $0$                                                & $5$                                             & $0$               & $0$                                            & \textbf{PASSED}     \\
+		\midrule
+		\textbf{Tổng cộng}        & \textbf{$129$}   & \textbf{$36$}                                      & \textbf{$129$}                                  & \textbf{$0$}      & \textbf{$0$}                                   & \textbf{100\% PASS} \\
+		\bottomrule
+	\end{tabular}
+	\caption{Kết quả thực thi bộ kiểm thử \texttt{test\_endpoints.js} theo từng tầng}
+	\label{tab:test-results}
+\end{table}
+
+\section{Đối chiếu mức độ hoàn thành mục tiêu}
+\label{sec:ch6-traceability}
+Bảng~\ref{tab:traceability} đối chiếu năm câu hỏi nghiệp vụ (Q1--Q5) và chín yêu cầu chức năng (FR-01--FR-09) từ Chương~\ref{part:ch1} với thành phần hiện thực và bằng chứng kiểm thử tương ứng.
+
+\begin{table}[H]
+	\centering
+	\footnotesize
+	\begin{tabular}{c | l p{6cm} l}
+		\toprule
+		{} & \textbf{Yêu cầu liên quan} & \textbf{Thành phần hiện thực}                                                & \textbf{Bằng chứng kiểm thử}         \\
+		\midrule
+		Q1       & FR-01, FR-03               & \texttt{salesStreamService}, \texttt{useSalesStream}, \textbf{EdaTab}        & Tier 0, F1, Tier 4 (Sc. 3)     \\
+		Q2       & FR-01, FR-04               & \texttt{edaService}, \texttt{\_buildEdaCache}, \textbf{EdaTab}               & Tier 0, F2--F5, Tier 4 (Sc. 4) \\
+		Q3       & FR-05, FR-06               & \texttt{runForecast}, \texttt{runForecastSuper}, \textbf{ForecastTab}        & F6, F9, F10, Tier 4 (Sc. 2)    \\
+		Q4       & FR-07                      & \texttt{forecastService} (\texttt{toFixed(2)}), \texttt{ForecastDiffTable}   & F6, Tier 3 (T3.5)              \\
+		Q5       & FR-08, FR-09               & \texttt{classifyInventory}, \texttt{inventoryService}, \textbf{InventoryTab} & F7, F8, F11, Tier 3--4         \\
+		\bottomrule
+	\end{tabular}
+	\caption{Ma trận truy xuất yêu cầu nghiệp vụ, hiện thực và kiểm thử}
+	\label{tab:traceability}
+\end{table}
+
+\section{Hạn chế và Các đánh đổi kỹ thuật}
+\label{sec:ch6-tradeoffs}
+Qua quá trình kiểm toán dữ liệu và đánh giá vận hành, nhóm ghi nhận năm hạn chế:
+\begin{enumerate}[label=\textit{\arabic*},topsep=0pt, itemsep=1pt]
+	\item \textbf{Tính bay hơi của trạng thái trên RAM:} Toàn bộ bộ đếm \texttt{\_cumulativeState} và \texttt{\_forecastCache} nằm trên bộ nhớ của một tiến trình Node.js đơn lẻ; khi khởi động lại container backend, số liệu tích lũy sẽ trở về $0$ và dữ liệu CSV phải nạp lại từ đầu.
+	\item \textbf{Mô phỏng luồng từ tập tin tĩnh:} Hai tuyến đường API streaming là \texttt{/api/stream/sales} và \texttt{/api/inventory/stream} trích mẫu ngẫu nhiên từ CSV tĩnh thay vì tiêu thụ sự kiện thời gian thực từ hàng đợi thông điệp, nên chưa phản ánh hiện tượng trễ sự kiện (\textit{late-arriving events}) hay mất cân bằng tải thực tế.
+	\item \textbf{Thiếu thước đo sai số hậu kiểm cho dự báo:} Hệ thống mới dừng ở việc đối chiếu độ lệch giữa SMA và WMA + mùa vụ trong tương lai (\textit{forecast divergence}), chưa triển khai đánh giá chéo theo thời gian (\textit{walk-forward backtesting}) với các chỉ số như RMSE hay MAPE trên tập kiểm tra lịch sử.
+	\item \textbf{Độ nhạy của nhánh dự phòng tồn kho:} Như phân tích ở Chương~\ref{part:ch2}, $25{,}72\%$ bản ghi tồn kho ($73.247$ dòng) có $\text{avgDailySales} \le 0$ được gán nhãn \textit{Healthy}, có thể che khuất nhóm hàng tồn đọng chết (\textit{dead stock}). (Vấn đề trùng lặp cặp \textit{(Category, Store)} ở bảng Top $10$ trước đây đã được khắc phục trong bản cập nhật mới nhất của \texttt{dataLoaderService.js}.)
+	\item \textbf{Chưa có xác thực và lọc đa chiều trên giao diện:} Hệ thống chưa tích hợp đăng nhập phân quyền theo từng cửa hàng, và các biểu đồ EDA trên \textbf{EdaTab} đang hiển thị tổng hợp toàn chuỗi thay vì lọc tương tác theo từng \textit{Store} hoặc \textit{Product Division}.
+\end{enumerate}
+
+\section{Hướng phát triển}
+Để mở rộng thành hệ thống xử lý dữ liệu lớn cấp sản xuất, nhóm đề xuất bốn hướng:
+\begin{itemize}[topsep=0pt, itemsep=1pt]
+	\item \textbf{Kiến trúc luồng và lưu trữ bền vững:} Tích hợp Apache Kafka làm tầng thu nhận giao dịch thời gian thực, kết hợp Redis để chia sẻ trạng thái tích lũy đa nút và PostgreSQL/TimescaleDB lưu chuỗi thời gian lịch sử thay cho RAM đơn nút.
+	\item \textbf{Mở rộng mô hình dự báo và kiểm định định lượng:} Bổ sung bộ đánh giá sai số RMSE/MAPE trên các tháng gần nhất (\texttt{2026-02}--\texttt{2026-04}), thử nghiệm mô hình học máy chuỗi thời gian (XGBoost hoặc Prophet) và tách nhóm hàng có $\text{sales30d} = 0$ thành nhãn riêng \textit{Dead Stock} thay vì gộp vào \textit{Healthy}.
+	\item \textbf{Xếp hạng mức độ thiếu hụt và lọc tương tác trên SPA:} Xếp hạng bảng Top $10$ cảnh báo theo mức độ thiếu hụt \textit{days of cover} tăng dần thay vì thứ tự duyệt tệp; bổ sung bộ lọc \textit{Store} và \textit{Product Division} cho bốn biểu đồ EDA.
+	\item \textbf{Tự động hóa CI/CD:} Thiết lập quy trình GitHub Actions tự động chạy bộ kiểm thử \texttt{test\_endpoints.js}, dựng ảnh Docker và biên dịch báo cáo LaTeX mỗi khi có thay đổi trên nhánh chính.
+\end{itemize}

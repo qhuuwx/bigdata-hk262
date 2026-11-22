@@ -1,0 +1,237 @@
+
+\part{Ba phân hệ phân tích lõi, Thuật toán và Kết quả thực nghiệm}
+\label{part:ch4}
+
+Chương này trình bày chi tiết cách hiện thực và kết quả thực nghiệm của ba phân hệ phân tích trung tâm trong \texttt{bigdata\_inventory}. Mục~\ref{sec:ch4-stream} phân tích cơ chế mô phỏng luồng giao dịch thời gian thực và kiểm soát polling ở trình duyệt. Mục~\ref{sec:ch4-forecast} trình bày mô hình toán học của hai thuật toán dự báo nhu cầu (SMA và WMA kết hợp hệ số mùa vụ) kèm số liệu đối chiếu trên dữ liệu thực tế. Mục~\ref{sec:ch4-inventory} phân tích thuật toán phân loại tồn kho $3$ mức, bộ đếm tích lũy trên RAM và bảng Top $10$ cảnh báo thực nghiệm.
+
+\section{Mô phỏng luồng giao dịch và Polling thông minh}
+\label{sec:ch4-stream}
+Để mô phỏng luồng dữ liệu giao dịch bán lẻ phát sinh liên tục từ $125.751$ bản ghi lịch sử, dịch vụ \texttt{salesStreamService.getSalesStream(20)} thực hiện lấy mẫu ngẫu nhiên $20$ chỉ số phân biệt bằng tập hợp \texttt{Set} trong một lượt gọi \texttt{GET /api/stream/sales}, chuẩn hóa kiểu số cho \texttt{Qty Sold} và \texttt{Sales Amount}.
+
+\begin{listing}[H]
+	\begin{minted}[fontsize=\footnotesize, linenos, breaklines]{javascript}
+const tick = useCallback(async () => {
+  if (isExecutingRef.current || (typeof document !== 'undefined' && document.hidden)) {
+    return;
+  }
+  try {
+    isExecutingRef.current = true;
+    await savedCallback.current();
+  } finally {
+    isExecutingRef.current = false;
+  }
+}, []);
+\end{minted}
+	\caption{Cơ chế chống chồng chéo và tạm dừng theo tab ẩn trong \texttt{usePolling.js}}
+	\label{lst:use-polling}
+\end{listing}
+
+Ở phía giao diện, hook \texttt{useSalesStream} kết nối với \texttt{usePolling} (Mã nguồn~\ref{lst:use-polling}) theo chu kỳ $2.000\text{ ms}$, chèn $20$ dòng mới lên đầu mảng trạng thái và cắt ngưỡng tối đa $100$ dòng (\texttt{combined.slice(0, 100)}). Hình~\ref{fig:polling_lifecycle} minh họa vòng đời một chu kỳ polling an toàn giữa trình duyệt và máy chủ.
+
+\begin{figure}[H]
+	\centering
+	\mermaidfile[width=0.95\linewidth, keepaspectratio]{diagrams/polling_lifecycle.mmd}
+	\caption{Tuần tự xử lý chu kỳ Polling $2.000\text{ ms}$, tự tạm dừng và bảo vệ quá thời gian}
+	\label{fig:polling_lifecycle}
+\end{figure}
+
+Ba cơ chế kỹ thuật giúp polling vận hành ổn định và tiết kiệm tài nguyên:
+\begin{itemize}[topsep=0pt, itemsep=1pt]
+	\item \textbf{Tự tạm dừng theo trạng thái thẻ (\texttt{document.hidden}):} Khi người dùng chuyển sang thẻ trình duyệt khác, \texttt{usePolling} ngừng gửi yêu cầu và tự động gọi lại ngay khi sự kiện \texttt{visibilitychange} báo thẻ hiển thị trở lại.
+	\item \textbf{Khóa chống chồng chéo (\texttt{isExecutingRef}):} Ngăn trường hợp yêu cầu sau được gửi đi khi yêu cầu trước chưa hoàn tất.
+	\item \textbf{Hủy quá thời gian (\texttt{AbortController}):} Lớp \texttt{apiClient.js} gắn bộ đếm $10.000\text{ ms}$ (hoặc $3.000\text{ ms}$ cho kiểm tra sức khỏe) để giải phóng kết nối treo kịp thời.
+\end{itemize}
+
+\section{Thuật toán dự báo nhu cầu kép}
+\label{sec:ch4-forecast}
+Phân hệ dự báo (\texttt{ForecastService}) cho phép người dùng chọn cặp \textit{(Product Category, Store)} và số kỳ tương lai $K \in [4, 24]$ để chạy song song hai thuật toán dự báo trên chuỗi sản lượng tháng lịch sử $\{y_1, y_2, \dots, y_T\}$ (Hình~\ref{fig:forecast_flow}).
+
+\begin{figure}[H]
+	\centering
+	\mermaidfile[width=0.95\linewidth, keepaspectratio]{diagrams/forecast_flow.mmd}
+	\caption{Luồng xử lý dự báo kép và lọc tối đa $8$ kỳ sai khác}
+	\label{fig:forecast_flow}
+\end{figure}
+
+\subsection{Normal Forecast: Trung bình trượt đơn giản (SMA)}
+\label{sec:ch4-sma}
+Thuật toán \textit{Normal Forecast} (\texttt{runForecast}, Mã nguồn~\ref{lst:sma}) áp dụng mô hình Trung bình trượt đơn giản (\textit{Simple Moving Average}) với kích thước cửa sổ trượt mặc định $N = 4$~\cite{hyndman2021forecasting}. Tại mỗi bước dự báo $i = 1, \dots, K$, giá trị dự báo $\hat{y}_{T+i}$ bằng trung bình cộng của $N$ phần tử cuối cùng trong chuỗi (gồm dữ liệu thực và các giá trị đã dự báo ở bước trước), làm tròn đến $2$ chữ số thập phân:
+\begin{equation}
+	\hat{y}_{T+i} = \text{round}_2\!\left(\dfrac{1}{|\mathcal{W}_i|}\displaystyle\sum_{y \in \mathcal{W}_i} y\right), \quad \mathcal{W}_i = h[\max(0, |h|-N) : |h|]
+\end{equation}
+
+\begin{listing}[H]
+	\begin{minted}[fontsize=\footnotesize, linenos, breaklines]{javascript}
+function runForecast(history, periods, windowSize = 4) {
+  if (!Array.isArray(history) || history.length === 0 || !periods || periods <= 0) return [];
+  const numPeriods = parseInt(periods, 10);
+  if (isNaN(numPeriods) || numPeriods <= 0) return [];
+  const effectiveWindow = Math.max(1, parseInt(windowSize, 10) || 4);
+  const result = [];
+  const h = history.map(v => Number(v) || 0);
+  for (let i = 0; i < numPeriods; i++) {
+    const window = h.slice(-effectiveWindow);
+    const sum = window.reduce((acc, val) => acc + val, 0);
+    const val = window.length > 0 ? sum / window.length : 0;
+    result.push(Math.round(val * 100) / 100);
+    h.push(val);
+  }
+  return result;
+}
+\end{minted}
+	\caption{Thuật toán Normal Forecast (SMA) trong \texttt{backend/algorithms/forecast.js}}
+	\label{lst:sma}
+\end{listing}
+
+\subsection{Super Forecast: WMA kết hợp hệ số mùa vụ}
+\label{sec:ch4-wma}
+Do dữ liệu bán lẻ có đỉnh mùa vụ rõ rệt vào tháng $8$ và tháng $12$ (Chương~\ref{part:ch2}), thuật toán \textit{Super Forecast} (\texttt{runForecastSuper}, Mã nguồn~\ref{lst:wma}) cải tiến theo hai bước:
+\begin{enumerate}[label=\textit{\arabic*},topsep=0pt, itemsep=1pt]
+	\item \textbf{Trung bình trượt có trọng số (WMA):} Gán trọng số tăng dần $w = [1, 2, 3, 4]$ cho $4$ kỳ gần nhất ($\sum w_j = 10$), giúp mô hình nhạy hơn với xu hướng mới phát sinh. Nếu chuỗi lịch sử có ít hơn $4$ phần tử ($L < 4$), thuật toán tự động cắt $L$ trọng số cuối của $w$ để tránh lỗi chia mảng không khớp.
+	\item \textbf{Điều chỉnh theo hệ số mùa vụ ($SF_m$):} Với tháng dự báo $m = (\text{currentMonth} + i) \bmod 12$, hệ số mùa vụ được tính từ trung bình lịch sử của tháng đó ($\overline{y}_m$) chia cho trung bình toàn chuỗi ($\overline{y}$):
+	      \begin{equation}
+		      SF_m = \begin{cases}
+			      \overline{y}_m / \overline{y}, & \text{nếu } \overline{y} > 0 \text{ và } \overline{y}_m > 0 \\
+			      1,                             & \text{ngược lại}
+		      \end{cases}, \qquad
+		      \hat{y}^{\text{super}}_{T+i} = \text{round}_2(\text{WMA}_i \cdot SF_m)
+	      \end{equation}
+\end{enumerate}
+
+\begin{listing}[H]
+	\begin{minted}[fontsize=\footnotesize, linenos, breaklines]{javascript}
+const baseWeights = [1, 2, 3, 4];
+const currentMonth = new Date().getMonth();
+for (let i = 0; i < numPeriods; i++) {
+  const window = h.slice(-4);
+  const activeWeights = baseWeights.slice(baseWeights.length - window.length);
+  const activeTotalW = activeWeights.reduce((a, b) => a + b, 0);
+  const wma = activeTotalW > 0
+    ? window.reduce((s, v, j) => s + v * activeWeights[j], 0) / activeTotalW : 0;
+  const forecastMonth = (currentMonth + i) % 12;
+  const mAvg = (monthlyAvg && monthlyAvg[forecastMonth] != null)
+    ? Number(monthlyAvg[forecastMonth]) : overallAvg;
+  const sf = (overallAvg && overallAvg > 0) ? (mAvg || overallAvg) / overallAvg : 1;
+  const val = Math.round(wma * ((!isNaN(sf) && sf > 0) ? sf : 1) * 100) / 100;
+  result.push(val);
+  h.push(val);
+}
+\end{minted}
+	\caption{Trích đoạn thuật toán Super Forecast (WMA + Mùa vụ) trong \texttt{forecastsuper.js}}
+	\label{lst:wma}
+\end{listing}
+
+\subsection{Kết quả đối chiếu thực nghiệm trên dữ liệu thật}
+\label{sec:ch4-forecast-eval}
+Sau khi sinh hai chuỗi dự báo, \texttt{ForecastService} lưu kết quả vào bộ nhớ đệm LRU giới hạn dung lượng ($1.500$ mục) \texttt{\_forecastCache} theo khóa \texttt{currentMonth:::category:::store:::periods} (bảo đảm tính mùa vụ cập nhật đúng khi sang tháng mới), sau đó so sánh từng cặp bằng chuẩn chuỗi \texttt{toFixed(2)} và trích xuất tối đa $8$ kỳ khác biệt đầu tiên. Bảng~\ref{tab:forecast-empirical} và Hình~\ref{fig:forecast-empirical-chart} ghi lại kết quả chạy thực tế $8$ kỳ cho hai danh mục tiêu biểu tại cửa hàng dẫn đầu \texttt{STR-1006}:
+\begin{itemize}[topsep=0pt, itemsep=1pt]
+	\item \textbf{Danh mục sản lượng cao (\texttt{Scholar Footwear Trailblazer}):} \textit{Normal Forecast} dao động phẳng quanh $72{,}75$--$80{,}05$, trong khi \textit{Super Forecast} bám theo biến động mùa vụ theo tháng (tăng lên $81{,}33$ ở $T+2$ tương ứng tháng $12$ rồi giảm về $24{,}53$--$39{,}84$ ở các tháng thấp điểm).
+	\item \textbf{Danh mục mùa vụ mạnh (\texttt{Femme Footwear Boot Collection}):} Nhờ chuẩn hóa điền $0$ đủ $11$ tháng trong \texttt{\_monthlyHistoryCache}, tại kỳ $T+2$ (đỉnh mùa đông tháng $12$), \textit{Super Forecast} tăng vọt lên $53{,}28$ so với $9{,}88$ của SMA (chênh lệch $+439{,}27\%$), phản ánh rõ nét nhu cầu giày bốt mùa lạnh mà trung bình giản đơn bỏ sót.
+\end{itemize}
+
+\begin{table}[H]
+	\centering
+	\caption{Kết quả đối chiếu $8$ kỳ dự báo thực nghiệm tại cửa hàng \texttt{STR-1006}}
+	\label{tab:forecast-empirical}
+	\footnotesize
+	\begin{tabular}{c | r r r r | r r r r}
+		\toprule
+		             & \multicolumn{4}{c|}{\textbf{Scholar Footwear Trailblazer}} & \multicolumn{4}{c}{\textbf{Femme Footwear Boot Collection}}                                                                                                                  \\
+		\textbf{Kỳ}  & \textbf{Normal}                                            & \textbf{Super}                                              & \textbf{$\Delta$} & \textbf{\% Lệch} & \textbf{Normal} & \textbf{Super} & \textbf{$\Delta$} & \textbf{\% Lệch} \\
+		\midrule
+		\texttt{T+1} & $72{,}75$                                                  & $50{,}93$                                                   & $21{,}82$         & $29{,}99\%$      & $11{,}50$       & $20{,}93$      & $9{,}43$          & $82{,}00\%$      \\
+		\texttt{T+2} & $76{,}44$                                                  & $81{,}33$                                                   & $4{,}89$          & $6{,}40\%$       & $9{,}88$        & $53{,}28$      & $43{,}40$         & $439{,}27\%$     \\
+		\texttt{T+3} & $80{,}05$                                                  & $36{,}54$                                                   & $43{,}51$         & $54{,}35\%$      & $7{,}84$        & $25{,}54$      & $17{,}70$         & $225{,}77\%$     \\
+		\texttt{T+4} & $74{,}56$                                                  & $30{,}51$                                                   & $44{,}05$         & $59{,}08\%$      & $8{,}05$        & $27{,}12$      & $19{,}07$         & $236{,}89\%$     \\
+		\texttt{T+5} & $75{,}95$                                                  & $39{,}84$                                                   & $36{,}11$         & $47{,}54\%$      & $9{,}32$        & $10{,}75$      & $1{,}43$          & $15{,}34\%$      \\
+		\texttt{T+6} & $76{,}75$                                                  & $24{,}53$                                                   & $52{,}22$         & $68{,}04\%$      & $8{,}77$        & $3{,}37$       & $5{,}40$          & $61{,}57\%$      \\
+		\texttt{T+7} & $76{,}83$                                                  & $31{,}52$                                                   & $45{,}31$         & $58{,}97\%$      & $8{,}50$        & $12{,}55$      & $4{,}05$          & $47{,}65\%$      \\
+		\texttt{T+8} & $76{,}02$                                                  & $28{,}27$                                                   & $47{,}75$         & $62{,}81\%$      & $8{,}66$        & $10{,}89$      & $2{,}23$          & $25{,}75\%$      \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+	\centering
+	\footnotesize
+	\begin{tikzpicture}
+		\begin{axis}[
+				width=0.92\linewidth,
+				height=5.2cm,
+				xlabel={Kỳ dự báo},
+				ylabel={Sản lượng dự báo (đơn vị)},
+				symbolic x coords={T+1,T+2,T+3,T+4,T+5,T+6,T+7,T+8},
+				xtick=data,
+				ymin=0,
+				ymax=60,
+				ymajorgrids=true,
+				grid style=dashed,
+				legend pos=north east,
+				legend style={font=\scriptsize}
+			]
+			\addplot[color=blue!80!black, mark=*, thick] coordinates {
+					(T+1, 11.50) (T+2, 9.88) (T+3, 7.84) (T+4, 8.05) (T+5, 9.32) (T+6, 8.77) (T+7, 8.50) (T+8, 8.66)
+				};
+			\addlegendentry{Normal Forecast (SMA)}
+			\addplot[color=orange!90!red, mark=square*, thick] coordinates {
+					(T+1, 20.93) (T+2, 53.28) (T+3, 25.54) (T+4, 27.12) (T+5, 10.75) (T+6, 3.37) (T+7, 12.55) (T+8, 10.89)
+				};
+			\addlegendentry{Super Forecast (WMA + Mùa vụ)}
+		\end{axis}
+	\end{tikzpicture}
+	\caption{Đường đối chiếu dự báo \texttt{Femme Footwear Boot Collection} tại \texttt{STR-1006}}
+	\label{fig:forecast-empirical-chart}
+\end{figure}
+
+\section{Phân loại tồn kho tích lũy và Cảnh báo ưu tiên}
+\label{sec:ch4-inventory}
+\begin{figure}[H]
+	\centering
+	\mermaidfile[width=0.95\linewidth, keepaspectratio]{diagrams/inventory_classify_flow.mmd}
+	\caption{Sơ đồ quyết định phân loại tồn kho $3$ mức và tích lũy trên RAM}
+	\label{fig:inventory_classify_flow}
+\end{figure}
+
+Dựa trên lý thuyết kiểm soát tồn kho theo số ngày bao phủ nhu cầu (\textit{days of supply})~\cite{silver2016inventory}, hàm \texttt{classifyInventory(qtyOnHand, avgDailySales)} (Mã nguồn~\ref{lst:classify}) đối chiếu lượng tồn hiện tại với tốc độ tiêu thụ bình quân $30$ ngày gần nhất ($\text{avgDailySales} = \text{sales30d} / 30$) theo luồng quyết định trong Hình~\ref{fig:inventory_classify_flow}.
+
+\begin{listing}[H]
+	\begin{minted}[fontsize=\footnotesize, linenos, breaklines, firstnumber=16]{javascript}
+function classifyInventory(qtyOnHand, avgDailySales) {
+  const qty = Number(qtyOnHand) || 0;
+  const sales = Number(avgDailySales) || 0;
+  if (sales <= 0) return 'healthy';
+  if (qty >= sales * 60) return 'over';
+  if (qty < sales * 14) return 'low';
+  return 'healthy';
+}
+\end{minted}
+	\caption{Hàm phân loại tồn kho thuần túy trong \texttt{backend/algorithms/classify.js}}
+	\label{lst:classify}
+\end{listing}
+
+\paragraph{Bộ đếm tích lũy bền vững trên RAM:} Mỗi $2$ giây, giao diện gửi yêu cầu tới tuyến \texttt{/api/inventory/stream} (\texttt{GET}). Máy chủ lấy ngẫu nhiên một lô $50$ bản ghi từ \texttt{\_rawInventory} (có kiểm soát tham số biên từ $1$ đến $5.000$), phân loại từng bản ghi và cộng dồn nguyên tử theo lô vào đối tượng \texttt{\_cumulativeState} (gồm ba bộ đếm \texttt{healthy}, \texttt{low}, \texttt{over}) của singleton \texttt{InventoryService}. Nhờ lưu ở cấp mô-đun máy chủ, biểu đồ Doughnut và $3$ thẻ KPI không bị mất số liệu khi người dùng tải lại trình duyệt, và chỉ về $0$ khi gọi \texttt{POST /api/inventory/reset}.
+
+\paragraph{Cảnh báo Top 10 thực nghiệm:} Khi dựng bộ nhớ đệm cảnh báo qua hàm nội bộ \texttt{\_buildInventoryAlertsCache}, hệ thống khử trùng lặp theo cặp \textit{(Product Category, Store)}, giữ tối đa $3$ suất cho \textit{Overstock} (khi có) để đảm bảo tính đa dạng cảnh báo và sắp xếp nghiêm ngặt toàn bộ \textit{Low Stock} (\textit{Khẩn cấp}) đứng trước \textit{Overstock} (\textit{Chú ý}). Kết quả thực tế trích xuất được $7$ cảnh báo \textit{Low Stock} và $3$ cảnh báo \textit{Overstock} trên $10$ cặp cửa hàng -- danh mục phân biệt (Bảng~\ref{tab:top10-alerts}).
+
+\begin{table}[H]
+	\centering
+	\footnotesize
+	\begin{tabular}{c p{6cm} c r c c}
+		\toprule
+		\textbf{STT} & \textbf{Product Category}                 & \textbf{Store}    & \textbf{Qty on hand} & \textbf{Stock Status} & \textbf{Mức độ} \\
+		\midrule
+		$1$          & \texttt{Scholar Footwear Canvas Styles}   & \texttt{STR-1010} & $1$                  & \textit{Low Stock}    & Khẩn cấp        \\
+		$2$          & \texttt{Femme Footwear Court Casual}      & \texttt{STR-1105} & $1$                  & \textit{Low Stock}    & Khẩn cấp        \\
+		$3$          & \texttt{Scholar Footwear Modern Legend}   & \texttt{STR-1253} & $4$                  & \textit{Low Stock}    & Khẩn cấp        \\
+		$4$          & \texttt{Scholar Footwear Court Casual}    & \texttt{STR-1163} & $3$                  & \textit{Low Stock}    & Khẩn cấp        \\
+		$5$          & \texttt{Scholar Footwear Modern Legend}   & \texttt{STR-1234} & $2$                  & \textit{Low Stock}    & Khẩn cấp        \\
+		$6$          & \texttt{Scholar Footwear Sandals}         & \texttt{STR-1335} & $5$                  & \textit{Low Stock}    & Khẩn cấp        \\
+		$7$          & \texttt{Femme Footwear Court Casual}      & \texttt{STR-1094} & $1$                  & \textit{Low Stock}    & Khẩn cấp        \\
+		$8$          & \texttt{Junior Apparel Cozy Pullovers}    & \texttt{STR-1157} & $3$                  & \textit{Overstock}    & Chú ý           \\
+		$9$          & \texttt{Femme Footwear Retro Legend}      & \texttt{STR-1222} & $4$                  & \textit{Overstock}    & Chú ý           \\
+		$10$         & \texttt{Scholar Footwear Trailblazer}     & \texttt{STR-1006} & $4$                  & \textit{Overstock}    & Chú ý           \\
+		\bottomrule
+	\end{tabular}
+	\caption{Top 10 cảnh báo tồn kho thực tế trích xuất từ \texttt{inventoryService.getAlerts()}}
+	\label{tab:top10-alerts}
+\end{table}

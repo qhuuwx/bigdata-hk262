@@ -1,0 +1,14 @@
+sequenceDiagram
+    participant Tab as React Tab
+    participant Poll as usePolling (2s)
+    participant Guard as readinessGuard
+    participant Svc as Backend Service
+
+    Tab->>Poll: Mount (visible)
+    Poll->>Guard: GET /api/* (timeout 10s)
+    alt Chưa sẵn sàng
+        Guard-->>Tab: 503 SERVICE_UNAVAILABLE
+    else Đã sẵn sàng
+        Guard->>Svc: Forward request
+        Svc-->>Tab: 200 OK (JSON)
+    end

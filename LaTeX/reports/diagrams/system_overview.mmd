@@ -1,0 +1,6 @@
+flowchart LR
+    S1["Sales CSV (125.751)"] --> RAM["RAM Index\n(dataLoaderService)"]
+    S2["Inventory CSV (284.755)"] --> RAM
+    RAM --> T1["EDA & Streaming"]
+    RAM --> T2["Dự báo Nhu cầu"]
+    RAM --> T3["Tồn kho Thông minh"]

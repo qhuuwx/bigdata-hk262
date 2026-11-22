@@ -1,0 +1,245 @@
+\pagenumbering{arabic}
+\setcounter{page}{1}
+\fancyfoot[C]{}
+\part{Tổng quan Bài toán}
+\label{part:ch1}
+
+Chương này phân tích bài toán nghiệp vụ và các yêu cầu đặt ra cho hệ thống phân tích bán lẻ \texttt{bigdata\_inventory}. Mục~\ref{sec:ch1-context} trình bày bối cảnh ngành bán lẻ giày dép, phát biểu bài toán và các câu hỏi nghiệp vụ cốt lõi. Mục~\ref{sec:users} xác định đối tượng người dùng và các quyết định cần hỗ trợ. Mục~\ref{sec:requirements} liệt kê yêu cầu chức năng và yêu cầu phi chức năng gắn với kiến trúc hệ thống. Mục~\ref{sec:kpi} định nghĩa các chỉ số đánh giá (KPI) và ngưỡng phân loại thuật toán, Mục~\ref{sec:data-overview} mô tả hai tập dữ liệu nguồn, và Mục~\ref{sec:scope} nêu phạm vi cùng các giả định thực hiện.
+
+\section{Bối cảnh và bài toán}
+\label{sec:ch1-context}
+
+\subsection{Bối cảnh}
+\label{sec:context}
+Trong chuỗi bán lẻ đa cửa hàng thuộc nhóm hàng giày dép và trang phục (như \textit{Scholar Footwear}, \textit{Femme Footwear} và \textit{Junior Apparel}), hoạt động kinh doanh phát sinh khối lượng lớn giao dịch bán hàng và biến động tồn kho hằng ngày trên nhiều cửa hàng và danh mục sản phẩm~\cite{smith2026retail}. Dữ liệu lịch sử cho thấy doanh số phân tán qua $40$ cửa hàng và $27$ danh mục sản phẩm, đi kèm các yếu tố đặc thù như biến động theo mùa, tỷ lệ hoàn trả hàng và chênh lệch tốc độ tiêu thụ giữa các mã sản phẩm.
+
+\medskip
+
+Nếu vận hành theo phương thức báo cáo tĩnh hoặc xử lý thủ công trên bảng tính rời rạc, bộ phận quản lý gặp ba khó khăn chính:
+\begin{itemize}[topsep=0pt, itemsep=1pt]
+	\item \textbf{Độ trễ giám sát bán hàng:} Dữ liệu giao dịch mới không được cập nhật liên tục lên bảng điều khiển, làm chậm khả năng phát hiện xu hướng doanh thu, kênh bán hàng chủ lực và nhóm sản phẩm có tỷ lệ hoàn trả cao.
+	\item \textbf{Sai lệch trong dự báo nhu cầu:} Dự báo chỉ dựa vào trung bình giản đơn bỏ qua tính mùa vụ theo tháng và trọng số của các kỳ gần nhất, dẫn đến kế hoạch nhập hàng thiếu chính xác khi nhu cầu tăng hoặc giảm đột ngột~\cite{hyndman2021forecasting}.
+	\item \textbf{Mất cân bằng tồn kho:} Khi thiếu cơ chế đối chiếu tự động giữa lượng hàng tồn hiện tại và tốc độ bán gần nhất, chuỗi cửa hàng dễ đồng thời gặp hai rủi ro: đứt hàng (\textit{stockout}) gây mất doanh thu ở nhóm bán chạy, hoặc tồn kho quá mức (\textit{overstock}) gây ứ đọng vốn ở nhóm bán chậm.
+\end{itemize}
+
+\subsection{Phát biểu bài toán}
+\label{sec:problem}
+Bài toán của nhóm là \textbf{xây dựng hệ thống phân tích dữ liệu bán lẻ thời gian thực, dự báo nhu cầu và giám sát tồn kho thông minh (\texttt{bigdata\_inventory})}. Hệ thống đọc dữ liệu giao dịch bán hàng và tồn kho từ tập tin CSV quy mô lớn ($410.506$ bản ghi), tổ chức chỉ mục trên bộ nhớ chính (RAM) để phản hồi nhanh các truy vấn phân tích, và cung cấp bảng điều khiển trực quan (\textit{dashboard}) gồm ba thẻ chức năng: \textbf{EDA \& Streaming}, \textbf{Dự báo Nhu cầu} và \textbf{Tồn kho Thông minh} (Hình~\ref{fig:system_overview}).
+
+\begin{figure}[H]
+	\centering
+	\mermaidfile[width=0.95\linewidth, keepaspectratio]{diagrams/system_overview.mmd}
+	\caption{Tổng quan luồng dữ liệu từ tập tin CSV đến ba phân hệ của \texttt{bigdata\_inventory}}
+	\label{fig:system_overview}
+\end{figure}
+
+\medskip
+
+Hệ thống hướng tới ba mục tiêu cụ thể:
+\begin{itemize}[topsep=0pt, itemsep=1pt]
+	\item \textbf{Giám sát luồng giao dịch và khám phá dữ liệu (EDA):} Mô phỏng luồng giao dịch bán hàng theo thời gian thực kết hợp bốn biểu đồ tổng hợp doanh thu theo tháng, top $10$ danh mục bán chạy, tỷ trọng doanh thu theo kênh và tỷ lệ hoàn trả theo nhóm sản phẩm.
+	\item \textbf{Đối chiếu hai thuật toán dự báo nhu cầu:} Cho phép người dùng chọn cặp danh mục và cửa hàng cùng số kỳ tương lai ($4$--$24$ kỳ) để so sánh trực tiếp thuật toán \textit{Normal Forecast} (Trung bình trượt đơn giản --- SMA) và \textit{Super Forecast} (Trung bình trượt có trọng số --- WMA kết hợp hệ số mùa vụ).
+	\item \textbf{Phân loại tồn kho tích lũy và cảnh báo ưu tiên:} Đánh giá sức khỏe tồn kho theo số ngày bao phủ nhu cầu dựa trên doanh số $30$ ngày gần nhất, cộng dồn trạng thái theo từng lô dữ liệu và lọc ra danh sách top $10$ cảnh báo khẩn cấp nhất.
+\end{itemize}
+
+\medskip
+
+Bảng~\ref{tab:business-questions} liệt kê năm câu hỏi nghiệp vụ (Q1--Q5) mà hệ thống giải đáp thông qua ba phân hệ giao diện.
+
+\begin{table}[H]
+	\centering
+	\caption{Câu hỏi nghiệp vụ trọng tâm của hệ thống}
+	\label{tab:business-questions}
+	\footnotesize
+	\begin{tabular}{c p{11.5cm} p{3.5cm}}
+		\toprule
+		\textbf{Mã} & \textbf{Câu hỏi nghiệp vụ}                                                                                                                                 & \textbf{Thẻ hỗ trợ} \\
+		\midrule
+		Q1          & Các giao dịch bán hàng mới phát sinh theo thời gian thực có thông số (ngày, nhóm hàng, danh mục, cửa hàng, số lượng, doanh thu) như thế nào?               & EDA \& Streaming    \\
+		Q2          & Xu hướng doanh thu theo tháng, top $10$ danh mục bán chạy, cơ cấu kênh bán hàng và tỷ lệ hoàn trả theo nhóm sản phẩm thay đổi ra sao?                      & EDA \& Streaming    \\
+		Q3          & Với một danh mục và cửa hàng cụ thể trong $4$--$24$ kỳ tới, dự báo theo SMA khác biệt thế nào so với WMA kết hợp yếu tố mùa vụ?                            & Dự báo Nhu cầu      \\
+		Q4          & Ở những kỳ nào hai thuật toán dự báo cho kết quả chênh lệch đáng kể (tối đa $8$ kỳ đầu tiên) và thuật toán nào cho mức dự báo cao hơn?                     & Dự báo Nhu cầu      \\
+		Q5          & Tỷ trọng các mặt hàng đang ở trạng thái \textit{Healthy}, \textit{Low Stock}, \textit{Overstock} là bao nhiêu và danh mục/cửa hàng nào cần xử lý khẩn cấp? & Tồn kho Thông minh  \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\section{Người dùng và Quyết định cần hỗ trợ}
+\label{sec:users}
+
+\begin{figure}[H]
+	\centering
+	\mermaidfile[width=0.95\linewidth, keepaspectratio]{diagrams/decision_levels.mmd}
+	\caption{Các cấp quyết định và thành phần giao diện hỗ trợ người dùng}
+	\label{fig:decision_levels}
+\end{figure}
+
+Hình~\ref{fig:decision_levels} tóm tắt ba nhóm người dùng, các cấp quyết định tương ứng và các thành phần giao diện phục vụ từng cấp. Hệ thống phục vụ quyết định quản trị bán lẻ mang tính bán cấu trúc (\textit{semi-structured decision})~\cite{turban2010dsbi}: máy chủ tự động hóa khâu tổng hợp dữ liệu lớn, tính toán dự báo và phân loại trạng thái, còn người quản lý dựa trên kết quả trực quan để đưa ra quyết định điều phối nhập hàng hoặc xả tồn. Bảng~\ref{tab:user-decision-levels} trình bày chi tiết từng nhóm người dùng và thành phần hỗ trợ trên ứng dụng web.
+
+\begin{table}[H]
+	\centering
+	\footnotesize
+	\begin{tabular}{p{2.6cm} p{1.9cm} p{4.6cm} p{5.1cm}}
+		\toprule
+		\textbf{Người dùng}                  & \textbf{Cấp quyết định} & \textbf{Quyết định cần hỗ trợ}                                                                      & \textbf{Thành phần hỗ trợ trên web}                                                                                                          \\
+		\midrule
+		Ban điều hành / Giám đốc kinh doanh  & Chiến lược, giám sát    & Đánh giá hiệu quả tổng thể, kênh phân phối và kiểm soát tỷ lệ hàng hoàn trả                         & Bốn biểu đồ EDA trên thẻ \textbf{EDA \& Streaming}; biểu đồ tròn tỷ lệ tồn kho tích lũy trên thẻ \textbf{Tồn kho Thông minh}                 \\
+		\midrule
+		Chuyên viên lập kế hoạch cung ứng    & Chiến thuật             & Xác định sản lượng nhập bổ sung theo từng danh mục và cửa hàng trong $4$--$24$ kỳ                   & Biểu đồ đường kép và bảng đối soát $8$ kỳ sai khác trên thẻ \textbf{Dự báo Nhu cầu}                                                          \\
+		\midrule
+		Quản lý cửa hàng / Điều phối tồn kho & Tác nghiệp              & Theo dõi luồng bán hàng tức thời; đặt hàng khẩn cấp cho mã thiếu hụt hoặc khuyến mãi xả hàng ứ đọng & Bảng giao dịch trực tiếp ($100$ dòng) trên \textbf{EDA \& Streaming}; $3$ thẻ KPI và bảng Top $10$ cảnh báo trên \textbf{Tồn kho Thông minh} \\
+		\bottomrule
+	\end{tabular}
+	\caption{Người dùng, cấp quyết định và thành phần hệ thống hỗ trợ}
+	\label{tab:user-decision-levels}
+\end{table}
+
+\section{Yêu cầu nghiệp vụ}
+\label{sec:requirements}
+
+\subsection{Yêu cầu chức năng}
+\label{sec:functional-requirements}
+Bảng~\ref{tab:functional-requirements} tổng hợp chín yêu cầu chức năng (FR-01 đến FR-09) được hiện thực xuyên suốt từ tầng nạp dữ liệu, tầng thuật toán đến giao diện React 18, gắn với các câu hỏi nghiệp vụ trong Bảng~\ref{tab:business-questions}.
+
+\begin{table}[H]
+	\centering
+	\footnotesize
+	\begin{tabular}{c p{9.2cm} p{3.6cm} c}
+		\toprule
+		\textbf{Mã} & \textbf{Mô tả yêu cầu}                                                                                                                                                                                                                       & \textbf{Dịch vụ / Giao diện}                      & \textbf{Câu hỏi} \\
+		\midrule
+		FR-01       & Nạp toàn bộ tập tin bán hàng ($125.751$ dòng) và tồn kho ($284.755$ dòng) vào RAM khi khởi động; xây dựng sẵn chỉ mục doanh số $30$ ngày theo sản phẩm và chuỗi lịch sử theo tháng.                                                          & \texttt{dataLoaderService}                        & Q1--Q5           \\
+		FR-02       & Cung cấp API kiểm tra trạng thái sẵn sàng (\texttt{GET /api/health}) và chặn các yêu cầu chưa sẵn sàng bằng mã HTTP \texttt{503} thông qua \texttt{readinessGuard}.                                                                          & \texttt{healthController}                         & --               \\
+		FR-03       & Mô phỏng luồng giao dịch bán hàng: trả về ngẫu nhiên $20$ giao dịch mỗi lần gọi (\texttt{GET /api/stream/sales}); giao diện thăm dò $2$ giây/lần, chèn lên đầu bảng và giới hạn tối đa $100$ dòng.                                           & \texttt{salesStreamService}, \textbf{EdaTab}      & Q1               \\
+		FR-04       & Tính toán sẵn và phục vụ dữ liệu cho $4$ biểu đồ EDA: xu hướng doanh thu theo tháng, top $10$ danh mục theo số lượng bán, cơ cấu kênh bán hàng và tỷ lệ hoàn trả theo nhóm sản phẩm.                                                         & \texttt{edaService}, \textbf{EdaTab}              & Q2               \\
+		FR-05       & Cung cấp danh sách danh mục (\texttt{GET /api/categories}) và cửa hàng (\texttt{GET /api/stores}) được trích xuất duy nhất và sắp xếp thứ tự từ dữ liệu thực tế.                                                                             & \texttt{forecastController}, \textbf{ForecastTab} & Q3               \\
+		FR-06       & Chạy song song \textit{Normal Forecast} (SMA, $N=4$) và \textit{Super Forecast} (WMA trọng số $[1, 2, 3, 4]$ nhân hệ số mùa vụ) cho $4$--$24$ kỳ (\texttt{POST /api/forecast}), có bộ nhớ đệm kết quả.                                       & \texttt{forecastService}, \textbf{ForecastTab}    & Q3               \\
+		FR-07       & So sánh hai chuỗi dự báo sau khi chuẩn hóa \texttt{toFixed(2)}, trích xuất tối đa $8$ kỳ sai khác đầu tiên kèm độ lệch tuyệt đối, phần trăm chênh lệch và thuật toán có giá trị cao hơn.                                                     & \texttt{forecastService}, \textbf{ForecastTab}    & Q4               \\
+		FR-08       & Xử lý luồng tồn kho theo lô $50$ bản ghi mỗi $2$ giây (\texttt{GET /api/inventory/stream}), phân loại \textit{Healthy}/\textit{Low Stock}/\textit{Overstock} và cộng dồn bền vững trên RAM máy chủ (kèm \texttt{POST /api/inventory/reset}). & \texttt{inventoryService}, \textbf{InventoryTab}  & Q5               \\
+		FR-09       & Lọc danh sách Top $10$ cảnh báo tồn kho nghiêm trọng (\texttt{GET /api/inventory/alerts}), ưu tiên hiển thị \textit{Low Stock} (\textit{Khẩn cấp}) trước \textit{Overstock} (\textit{Chú ý}).                                                & \texttt{inventoryService}, \textbf{InventoryTab}  & Q5               \\
+		\bottomrule
+	\end{tabular}
+	\caption{Danh sách yêu cầu chức năng của hệ thống}
+	\label{tab:functional-requirements}
+\end{table}
+
+\subsection{Yêu cầu phi chức năng}
+\label{sec:nfr}
+Bên cạnh các chức năng nghiệp vụ, hệ thống được thiết kế để đáp ứng bốn nhóm yêu cầu phi chức năng trọng yếu:
+\begin{itemize}[topsep=0pt, itemsep=1pt]
+	\item \textbf{Hiệu năng và quản lý tài nguyên:} Dữ liệu CSV được phân tích dạng luồng (\textit{streaming parser}) khi khởi động và lưu chỉ mục trên RAM để mọi truy vấn EDA, dự báo và mô phỏng luồng phản hồi tức thời. Cơ chế thăm dò (\textit{polling}) trên \texttt{usePolling} chạy chu kỳ $2.000\text{ ms}$, tự động tạm dừng khi thẻ trình duyệt bị ẩn (\texttt{document.hidden}), ngăn chồng chéo bất đồng bộ và áp dụng \texttt{AbortController} với ngưỡng quá thời gian $10.000\text{ ms}$ trên \texttt{apiClient}.
+	\item \textbf{Độ sẵn sàng và bảo vệ truy cập:} Lớp trung gian \texttt{readinessGuard} chặn mọi đường dẫn \texttt{/api/*} (ngoại trừ \texttt{/api/health}) với mã HTTP \texttt{503 SERVICE\_UNAVAILABLE} cho đến khi quá trình nạp hơn $410.000$ bản ghi hoàn tất, tránh tình trạng truy vấn trên dữ liệu rỗng.
+	\item \textbf{Tính mô-đun và khả năng bảo trì:} Phần máy chủ tuân thủ kiến trúc sạch $7$ tầng (\textit{Clean Architecture})~\cite{martin2017clean}: các thuật toán lõi trong \texttt{backend/algorithms/} là hàm thuần túy (\textit{pure functions}) không phụ thuộc vào tầng ngoài; tầng \texttt{services/} quản lý trạng thái và bộ nhớ đệm độc lập với \texttt{req}/\texttt{res}. Giao diện tách biệt ngữ cảnh \texttt{AppContext} (quản lý thẻ đang mở và trạng thái máy chủ) và \texttt{ToastContext} (quản lý thông báo).
+	\item \textbf{Khả năng đóng gói và tái lập:} Toàn bộ hệ thống được đóng gói bằng Docker đa container qua \texttt{docker-compose.yml}, gồm container \texttt{backend} (Node.js chạy cổng $3000$ với kiểm tra sức khỏe định kỳ mỗi $5$ giây) và container \texttt{frontend} (Nginx Alpine phục vụ cổng $80$, ánh xạ ra cổng $3001$, cấu hình nén Gzip và ủy quyền ngược \texttt{/api/} sang máy chủ backend).
+\end{itemize}
+
+\section{Chỉ số đánh giá (KPI)}
+\label{sec:kpi}
+Các chỉ số và ngưỡng quyết định của hệ thống được định nghĩa tập trung trong \texttt{constants.js} (thư mục \texttt{backend/config/}), \texttt{dataLoaderService.js} (thư mục \texttt{backend/services/}) và ba hàm thuật toán thuần túy tại \texttt{backend/algorithms/}. Nhờ đồng bộ hằng số giữa máy chủ và giao diện, số liệu hiển thị trên ba thẻ của ứng dụng khớp hoàn toàn với kết quả tính toán ở tầng dịch vụ.
+
+\subsection{Quy ước Phạm vi tính toán}
+\label{sec:kpi-scope}
+
+\begin{figure}[H]
+	\centering
+	\mermaidfile[width=0.95\linewidth, keepaspectratio]{diagrams/kpi_scope.mmd}
+	\caption{Phạm vi tính toán chỉ số và ngưỡng phân loại tồn kho}
+	\label{fig:kpi_scope}
+\end{figure}
+
+Tùy theo đặc thù bài toán, các chỉ số được tính trên ba phạm vi sau:
+\begin{itemize}
+	\item \textbf{Toàn bộ lịch sử giao dịch:} Tính trên $125.751$ bản ghi bán hàng (từ \texttt{2025-06-01} đến \texttt{2026-04-24}) phục vụ bốn biểu đồ EDA và xây dựng chuỗi thời gian theo tháng cho từng cặp danh mục -- cửa hàng.
+	\item \textbf{Cửa sổ $30$ ngày gần nhất (\texttt{SALES\_LOOKBACK\_DAYS = 30}):} Lấy mốc ngày giao dịch lớn nhất trong tập dữ liệu (\texttt{2026-04-24}) lùi về $30$ ngày để tổng hợp sản lượng bán $30$ ngày (\texttt{prodSales30d}) của từng mã sản phẩm, làm căn cứ tính tốc độ tiêu thụ bình quân ngày.
+	\item \textbf{Luồng tích lũy trên bộ nhớ (\textit{Cumulative Stream}):} Cộng dồn trạng thái phân loại qua các lô ngẫu nhiên ($20$ dòng/lần cho bảng bán hàng; $50$ bản ghi/lần cho biểu đồ tồn kho), tồn tại xuyên suốt vòng đời máy chủ cho đến khi người dùng đặt lại.
+\end{itemize}
+
+\subsection{Định nghĩa Chỉ số và Ngưỡng thuật toán}
+\label{sec:kpi-main}
+
+\begin{table}[H]
+	\centering
+	\footnotesize
+	\begin{tabular}{c p{2.5cm} p{8cm} p{3.3cm}}
+		\toprule
+		\textbf{Phân hệ} & \centering\textbf{Chỉ số / Thuật toán}   & \centering\textbf{Công thức và Ngưỡng xác định}                                                                                                                                          & \textbf{Hiển thị trên web}         \\
+		\midrule
+		EDA              & Doanh thu tháng                          & Tổng \texttt{Sales Amount} nhóm theo định dạng \texttt{YYYY-MM}, sắp xếp tăng dần theo thời gian                                                                                         & Xu hướng doanh thu (\$)            \\
+		EDA              & Top $10$ danh mục                        & Tổng \texttt{Qty Sold} theo \texttt{Product Category}, sắp xếp giảm dần và lấy $10$ danh mục dẫn đầu                                                                                     & Top $10$ danh mục bán chạy         \\
+		EDA              & Cơ cấu kênh bán hàng                     & Tổng \texttt{Sales Amount} theo \texttt{Sales Channel} và tỷ trọng phần trăm trên tổng doanh thu                                                                                         & Phân bổ doanh thu theo kênh        \\
+		EDA              & Tỷ lệ hoàn trả                           & Số giao dịch có \texttt{Is Return = 1} chia tổng giao dịch của mỗi \texttt{Product Division} ($\times 100\%$, làm tròn $2$ chữ số)                                                       & Tỷ lệ đổi trả (\%)                 \\
+		\midrule
+		Dự báo           & Normal Forecast (SMA)                    & Trung bình cộng trượt của $N=4$ kỳ gần nhất: $\hat{y}_{t} = \dfrac{1}{4}\displaystyle\sum_{k=1}^{4} y_{t-k}$, làm tròn $2$ chữ số thập phân                                              & Đường xanh (\textit{Normal})       \\
+		Dự báo           & Super Forecast (WMA + Mùa vụ)            & WMA trọng số $w=[1, 2, 3, 4]$ trên $4$ kỳ gần nhất, nhân hệ số mùa vụ $SF_m = \overline{y}_m / \overline{y}$ của tháng dự báo $m$, làm tròn $2$ chữ số                                   & Đường cam (\textit{Super})         \\
+		Dự báo           & Chênh lệch đối soát                      & $\Delta = |\hat{y}_{\text{super}} - \hat{y}_{\text{normal}}|$ và $\%\Delta = \dfrac{\Delta}{|\hat{y}_{\text{normal}}|} \times 100\%$; lọc tối đa $8$ kỳ có \texttt{toFixed(2)} khác nhau & Bảng đối soát $8$ kỳ               \\
+		\midrule
+		Tồn kho          & Tốc độ bán ngày (\texttt{avgDailySales}) & $\text{sales30d} / 30$, với \texttt{sales30d} là tổng \texttt{Qty Sold} của sản phẩm trong $30$ ngày gần nhất                                                                            & Tham số nội suy ngưỡng             \\
+		Tồn kho          & \textbf{Healthy}                         & $\text{avgDailySales} \le 0$ hoặc $\text{qtyOnHand} \ge 14 \times \text{avgDailySales}$ (và $< 60 \times \text{avgDailySales}$)                                                          & Thẻ xanh lá (\texttt{Cover > 14d}) \\
+		Tồn kho          & \textbf{Low Stock}                       & $\text{avgDailySales} > 0$ và $\text{qtyOnHand} < 14 \times \text{avgDailySales}$                                                                                                        & Thẻ cam (\texttt{Cover < 14d})     \\
+		Tồn kho          & \textbf{Overstock}                       & $\text{avgDailySales} > 0$ và $\text{qtyOnHand} \ge 60 \times \text{avgDailySales}$                                                                                                      & Thẻ đỏ (\texttt{Cover > 60d})      \\
+		\bottomrule
+	\end{tabular}
+	\caption{Định nghĩa các chỉ số và ngưỡng đánh giá trên ba phân hệ}
+	\label{tab:kpi-definitions}
+\end{table}
+
+Trên dữ liệu lịch sử thực tế ($125.751$ giao dịch bán hàng), hệ thống ghi nhận tổng doanh thu đạt $10.482.110{,}25$ đơn vị tiền tệ với tổng số lượng bán $116.995$ đơn vị và $7.491$ lượt hoàn trả (tương ứng tỷ lệ hoàn trả trung bình $5{,}96\%$). Trên $284.755$ bản ghi tồn kho, tổng lượng hàng tồn kho ghi nhận đạt $653.407$ đơn vị.
+
+\section{Tổng quan dữ liệu}
+\label{sec:data-overview}
+Hệ thống sử dụng hai tập tin CSV từ bộ dữ liệu \textit{Retail Transactions and Stocks Data}~\cite{smith2026retail} đặt trong thư mục \texttt{data/}, gồm tổng cộng $410.506$ bản ghi. Bảng~\ref{tab:data-overview} tóm tắt quy mô, khoảng thời gian và các trường dữ liệu chính được hệ thống trích xuất.
+
+\begin{table}[H]
+	\centering
+	\footnotesize
+	\begin{tabular}{c c c p{1.6cm} p{5.8cm}}
+		\toprule
+		\textbf{Tập tin nguồn}                  & \textbf{Số dòng} & \textbf{Số cột} & \centering\textbf{Thời gian}                           & \textbf{Trường dữ liệu sử dụng chính}                                                                                                                                                                      \\
+		\midrule
+		\texttt{retail\_sales\_ml\_apl.csv}     & $125.751$        & $17$            & \texttt{2025/06/01} $\rightarrow$ \texttt{26/04/24}    & \texttt{Transaction Date}, \texttt{Is Return}, \texttt{Product No}, \texttt{Product Division}, \texttt{Product Category}, \texttt{Store}, \texttt{Sales Channel}, \texttt{Qty Sold}, \texttt{Sales Amount} \\
+		\midrule
+		\texttt{retail\_inventory\_ml\_apl.csv} & $284.755$        & $18$            & \texttt{2025/06/01} $\rightarrow$  \texttt{9999/12/31} & \texttt{Start Date}, \texttt{End Date}, \texttt{Stock Status}, \texttt{Product No}, \texttt{Product Category}, \texttt{Store}, \texttt{Store Type}, \texttt{Qty on hand}                                   \\
+		\bottomrule
+	\end{tabular}
+	\caption{Tổng quan hai tập dữ liệu nguồn trong hệ thống}
+	\label{tab:data-overview}
+\end{table}
+
+Phân tích cấu trúc hai tập tin nguồn cho thấy năm đặc điểm dữ liệu ảnh hưởng trực tiếp tới thiết kế xử lý của \texttt{dataLoaderService}:
+\begin{itemize}[topsep=0pt, itemsep=1pt]
+	\item \textbf{Phân cấp sản phẩm và cửa hàng đồng nhất:} Cả hai tập tin đều phủ trên $40$ cửa hàng (\texttt{STR-1006} trở đi) và $27$ danh mục sản phẩm thuộc $3$ nhóm hàng (\textit{Scholar Footwear}, \textit{Femme Footwear}, \textit{Junior Apparel}), liên kết thông qua mã sản phẩm \texttt{Product No} ($2.326$ mã trong bảng tồn kho) và mã cửa hàng \texttt{Store}.
+	\item \textbf{Dữ liệu giao dịch một kênh và cửa hàng một loại:} Toàn bộ bản ghi bán hàng thuộc một kênh phân phối (\textit{Channel Alpha}) và toàn bộ bản ghi tồn kho thuộc loại hình \textit{Retail Storefront}; điều này cho phép kiểm chứng cấu trúc biểu đồ phân bổ mà không làm phân mảnh tập mẫu.
+	\item \textbf{Trạng thái giá và mốc kết thúc hiệu lực:} Tập tồn kho phân biệt $5$ trạng thái định giá (\textit{Full Price}, \textit{Markdown Tier 1}, \textit{Markdown Tier 2}, \textit{Clearance}, \textit{Promo}) và sử dụng mốc giả \texttt{End Date = 9999-12-31} cho các bản ghi tồn kho còn hiệu lực.
+	\item \textbf{Đặc thù dữ liệu hoàn trả:} Cột \texttt{Reason of Return} để trống ở các giao dịch không hoàn trả (\texttt{Is Return = 0}) và chỉ phát sinh giá trị khi \texttt{Is Return = 1} ($7.491$ giao dịch); do đó chỉ số hoàn trả tính theo tỷ lệ nhị phân trên \texttt{Is Return}.
+	\item \textbf{Chuẩn hóa định dạng số và chuỗi CSV:} Các trường số thực như \texttt{Qty Sold}, \texttt{Sales Amount} và \texttt{Cogs} lưu dưới dạng chuỗi có $4$ chữ số thập phân trong CSV (ví dụ \texttt{115.0000}), đòi hỏi tầng nạp ép kiểu số an toàn và sử dụng bộ phân tách CSV chuẩn RFC 4180 (\texttt{csv-parser} kèm dự phòng \texttt{parseCSVLine}) để xử lý trường văn bản có dấu ngoặc kép.
+\end{itemize}
+
+\section{Phạm vi và Giả định}
+\label{sec:scope}
+
+\subsection*{Trong phạm vi}
+\label{sec:in-scope}
+\begin{itemize}[topsep=0pt, itemsep=1pt]
+	\item \textbf{Nạp và lập chỉ mục trên bộ nhớ:} Tự động đọc toàn bộ $410.506$ bản ghi CSV từ đĩa vào RAM lúc khởi động máy chủ, tiền tính toán các tập dữ liệu EDA, bảng tra cứu doanh số $30$ ngày và top $10$ cảnh báo tồn kho.
+	\item \textbf{Mô phỏng luồng thời gian thực:} Cài đặt cơ chế polling mỗi $2$ giây cho luồng bán hàng ($20$ dòng/lần) và luồng phân loại tồn kho ($50$ bản ghi/lần) thông qua REST API chuẩn JSON.
+	\item \textbf{Dự báo nhu cầu và phân loại tồn kho:} Cài đặt hai thuật toán dự báo (SMA và WMA + mùa vụ) và thuật toán phân loại tồn kho $3$ mức làm các hàm thuần túy, kiểm thử độc lập qua bộ kiểm thử tự động \texttt{test\_endpoints.js}.
+	\item \textbf{Giao diện SPA và đóng gói Docker:} Xây dựng đầy đủ giao diện $3$ thẻ trên React 18 và cấu hình triển khai đa container với Nginx.
+\end{itemize}
+
+\subsection*{Ngoài phạm vi}
+\label{sec:out-of-scope}
+\begin{itemize}[topsep=0pt, itemsep=1pt]
+	\item \textbf{Hệ quản trị cơ sở dữ liệu phân tán và hàng đợi thông điệp:} Hệ thống không sử dụng Apache Kafka, Spark hay cơ sở dữ liệu ngoài; toàn bộ trạng thái lưu tạm trên RAM nhằm tối giản triển khai trên một nút đơn lẻ.
+	\item \textbf{Ghi ngược xuống dữ liệu nguồn và đặt hàng tự động:} Hệ thống chỉ hỗ trợ đọc, phân tích và cảnh báo; không tự động tạo đơn đặt hàng tới nhà cung cấp hay cập nhật sửa đổi tập tin CSV gốc.
+	\item \textbf{Xác thực và phân quyền người dùng:} Phiên bản hiện tại phục vụ trình diễn phân tích tập trung nên chưa tích hợp đăng nhập hoặc phân quyền theo vai trò cửa hàng.
+\end{itemize}
+
+\subsection*{Giả định}
+\label{sec:assumptions}
+\begin{enumerate}[label=\textit{\arabic*},topsep=0pt, itemsep=1pt]
+	\item \textbf{Cửa sổ doanh số đại diện:} Tốc độ tiêu thụ bình quân ngày của mỗi sản phẩm được ước lượng bằng tổng \texttt{Qty Sold} trong $30$ ngày gần nhất tính từ ngày giao dịch mới nhất trong tập dữ liệu (\texttt{2026-04-24}) chia cho $30$.
+	\item \textbf{Chu kỳ dự báo theo tháng:} Dữ liệu đầu vào của thuật toán dự báo được tổng hợp theo từng tháng (\texttt{YYYY-MM}) và điền giá trị $0$ cho các tháng khuyết trên toàn bộ $11$ tháng lịch sử; cặp không có lịch sử giao dịch sẽ dùng chuỗi $0$ đủ $11$ tháng.
+	\item \textbf{Mặc định với sản phẩm chưa có lịch sử bán:} Nếu một mã sản phẩm trong kho không phát sinh doanh số trong $30$ ngày gần nhất ($\text{avgDailySales} \le 0$), hàm \texttt{classifyInventory} mặc định phân loại là \textbf{Healthy} để tránh báo động giả thiếu hàng.
+	\item \textbf{Thứ tự ưu tiên cảnh báo:} Bảng Top $10$ cảnh báo tồn kho khử trùng lặp theo cặp \textit{(Category, Store)}, giữ tối đa $3$ cảnh báo \textit{Overstock} (nếu có) và sắp xếp toàn bộ \textit{Low Stock} lên trước \textit{Overstock}.
+	\item \textbf{Trạng thái tích lũy trên máy chủ:} Bộ đếm \texttt{cumulativeState} trên \texttt{InventoryService} giữ nguyên trong RAM kể cả khi tải lại trang trình duyệt, chỉ trở về $0$ khi máy chủ khởi động lại hoặc nhận yêu cầu \texttt{POST /api/inventory/reset}.
+\end{enumerate}

@@ -1,0 +1,9 @@
+flowchart LR
+    S["Sales CSV"] --> EDA["scripts/eda_report.js"]
+    I["Inventory CSV"] --> EDA
+    EDA --> A1["Kiểm toán & Mô tả"]
+    EDA --> A2["Mùa vụ 11 tháng"]
+    EDA --> A3["Phân loại kho 30d"]
+    A1 --> JSON["eda_summary.json"]
+    A2 --> JSON
+    A3 --> JSON
