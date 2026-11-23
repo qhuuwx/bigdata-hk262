@@ -1,9 +1,10 @@
 ﻿/**
  * Health Controller
- * Reports system status, loaded record counts, and inventory cumulative summary.
+ * Reports system status, data backend mode, loaded record counts, and inventory cumulative summary.
  */
 
-const { dataLoaderService, inventoryService } = require('../services');
+const { dataRepository } = require('../repositories');
+const { inventoryService } = require('../services');
 const { CONSTANTS } = require('../config');
 
 class HealthController {
@@ -11,11 +12,12 @@ class HealthController {
    * GET /api/health
    */
   getHealth(req, res) {
-    const isReady = dataLoaderService.isReady();
+    const isReady = dataRepository.isReady();
     res.status(CONSTANTS.HTTP_STATUS.OK).json({
       status: isReady ? 'ready' : 'loading',
-      salesCount: dataLoaderService.getRawSales().length,
-      inventoryCount: dataLoaderService.getRawInventory().length,
+      backend: dataRepository.getMode(),
+      salesCount: dataRepository.getSalesCount(),
+      inventoryCount: dataRepository.getInventoryCount(),
       cumulative: inventoryService.getCumulativeState()
     });
   }

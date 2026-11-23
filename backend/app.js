@@ -11,7 +11,7 @@ const {
   createReadinessGuard,
   errorHandler
 } = require('./middleware');
-const { dataLoaderService } = require('./services');
+const { dataRepository } = require('./repositories');
 const apiRoutes = require('./routes');
 
 const app = express();
@@ -25,7 +25,7 @@ app.use(logger);
 app.use(express.static(env.FRONTEND_DIR));
 
 // 3. Readiness Guard for /api routes
-app.use('/api', createReadinessGuard(dataLoaderService));
+app.use('/api', createReadinessGuard(dataRepository));
 
 // 4. Mount API Routes
 app.use('/api', apiRoutes);

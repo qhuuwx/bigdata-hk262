@@ -1,9 +1,9 @@
 ﻿/**
  * Sales Stream Service
- * Provides randomized batches of 20 live transactions from the loaded dataset.
+ * Provides randomized batches of 20 live transactions via DataRepository.
  */
 
-const dataLoaderService = require('./dataLoaderService');
+const { dataRepository } = require('../repositories');
 const { CONSTANTS } = require('../config');
 
 class SalesStreamService {
@@ -14,35 +14,13 @@ class SalesStreamService {
    * @returns {Array<Object>}
    */
   getSalesStream(batchSize = CONSTANTS.STREAM.SALES_BATCH_SIZE) {
-    const sales = dataLoaderService.getRawSales();
-    if (!sales || sales.length === 0) {
-      return [];
-    }
-
     const parsedSize = Number(batchSize);
     if (!Number.isFinite(parsedSize) || parsedSize <= 0) {
       return [];
     }
 
     const safeBatchSize = Math.min(Math.floor(parsedSize), 500);
-    const count = Math.min(safeBatchSize, sales.length);
-    const sample = [];
-    const seen = new Set();
-
-    while (seen.size < count) {
-      const idx = Math.floor(Math.random() * sales.length);
-      if (!seen.has(idx)) {
-        seen.add(idx);
-        const raw = sales[idx];
-        sample.push({
-          ...raw,
-          'Qty Sold': Number(raw['Qty Sold']) || 0,
-          'Sales Amount': Number(raw['Sales Amount']) || 0
-        });
-      }
-    }
-
-    return sample;
+    return dataRepository.getSalesStreamBatch(safeBatchSize);
   }
 }
 

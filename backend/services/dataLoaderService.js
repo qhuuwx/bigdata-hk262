@@ -1,7 +1,7 @@
 ﻿/**
  * Data Loader Service
- * Handles streaming CSV ingestion, in-memory caching, indexing, and EDA pre-computations.
- * Self-manages all private caches.
+ * Handles non-blocking streaming CSV ingestion, in-memory caching, multi-dimensional
+ * EDA cube indexing, and inventory alert pre-computations.
  */
 
 const fs = require('fs');
@@ -22,8 +22,10 @@ class DataLoaderService {
     this._prodSales30dMap = new Map();
     this._distinctCategories = [];
     this._distinctStores = [];
+    this._distinctDivisions = [];
     this._monthlyCategoryStoreSales = new Map();
     this._monthlyHistoryCache = new Map();
+    this._edaCube = [];
     this._edaCache = {
       revenueTrend: [],
       topCategories: [],
@@ -57,12 +59,153 @@ class DataLoaderService {
     return [...this._distinctStores];
   }
 
+  getDistinctDivisions() {
+    return [...this._distinctDivisions];
+  }
+
+  getAllMonths() {
+    return [...this._allMonths];
+  }
+
+  getEdaMetadata() {
+    return {
+      stores: this.getDistinctStores(),
+      divisions: this.getDistinctDivisions(),
+      categories: this.getDistinctCategories(),
+      months: this.getAllMonths()
+    };
+  }
+
   getEdaCache() {
     return this._edaCache;
   }
 
   getInventoryAlertsCache() {
     return this._inventoryAlertsCache;
+  }
+
+  /**
+   * Checks whether an EDA filter object contains any active filtering criteria.
+   * @param {Object} [filters]
+   * @returns {boolean}
+   */
+  hasActiveEdaFilters(filters = {}) {
+    if (!filters || typeof filters !== 'object') return false;
+    const { store, division, startMonth, endMonth } = filters;
+    const hasStore = Boolean(store && String(store).trim() && String(store).trim().toUpperCase() !== 'ALL');
+    const hasDivision = Boolean(division && String(division).trim() && String(division).trim().toUpperCase() !== 'ALL');
+    const hasStart = Boolean(startMonth && String(startMonth).trim() && String(startMonth).trim().toUpperCase() !== 'ALL');
+    const hasEnd = Boolean(endMonth && String(endMonth).trim() && String(endMonth).trim().toUpperCase() !== 'ALL');
+    return hasStore || hasDivision || hasStart || hasEnd;
+  }
+
+  /**
+   * Queries the pre-indexed multi-dimensional EDA cube with optional filters:
+   * { store, division, startMonth, endMonth }.
+   * When no filters are active, returns the default O(1) precomputed cache directly.
+   * @param {Object} [filters]
+   */
+  queryFilteredEda(filters = {}) {
+    if (!this.hasActiveEdaFilters(filters)) {
+      return this._edaCache;
+    }
+
+    const storeFilter = filters.store && String(filters.store).trim().toUpperCase() !== 'ALL'
+      ? String(filters.store).trim()
+      : null;
+    const divisionFilter = filters.division && String(filters.division).trim().toUpperCase() !== 'ALL'
+      ? String(filters.division).trim()
+      : null;
+    const startMonth = filters.startMonth && String(filters.startMonth).trim().toUpperCase() !== 'ALL'
+      ? String(filters.startMonth).trim()
+      : null;
+    const endMonth = filters.endMonth && String(filters.endMonth).trim().toUpperCase() !== 'ALL'
+      ? String(filters.endMonth).trim()
+      : null;
+
+    const monthRevMap = new Map();
+    const catQtyMap = new Map();
+    const chanMap = new Map();
+    let totalChannelSales = 0;
+    const divTotalMap = new Map();
+    const divReturnMap = new Map();
+
+    // Seed chronological months within the requested [startMonth, endMonth] window
+    const activeMonths = this._allMonths.filter((m) => {
+      if (startMonth && m < startMonth) return false;
+      if (endMonth && m > endMonth) return false;
+      return true;
+    });
+    for (let i = 0; i < activeMonths.length; i++) {
+      monthRevMap.set(activeMonths[i], 0);
+    }
+
+    // Aggregate over compact pre-indexed cube (~6,500 cells) in sub-millisecond time
+    for (let i = 0; i < this._edaCube.length; i++) {
+      const cell = this._edaCube[i];
+      if (storeFilter && cell.store !== storeFilter) continue;
+      if (divisionFilter && cell.division !== divisionFilter) continue;
+      if (startMonth && cell.month < startMonth) continue;
+      if (endMonth && cell.month > endMonth) continue;
+
+      if (cell.month) {
+        monthRevMap.set(cell.month, (monthRevMap.get(cell.month) || 0) + cell.revenue);
+      }
+      if (cell.category) {
+        catQtyMap.set(cell.category, (catQtyMap.get(cell.category) || 0) + cell.qty);
+      }
+      if (cell.channel) {
+        chanMap.set(cell.channel, (chanMap.get(cell.channel) || 0) + cell.revenue);
+        totalChannelSales += cell.revenue;
+      }
+      if (cell.division) {
+        divTotalMap.set(cell.division, (divTotalMap.get(cell.division) || 0) + cell.totalCount);
+        if (cell.returnCount > 0) {
+          divReturnMap.set(cell.division, (divReturnMap.get(cell.division) || 0) + cell.returnCount);
+        }
+      }
+    }
+
+    const revenueTrend = activeMonths.map((m) => ({
+      month: m,
+      revenue: Math.round((monthRevMap.get(m) || 0) * 100) / 100
+    }));
+
+    const topCategories = Array.from(catQtyMap.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([category, qty]) => ({
+        category,
+        qty: Math.round(qty * 100) / 100
+      }));
+
+    const channelSplit = Array.from(chanMap.entries())
+      .map(([channel, amount]) => ({
+        channel,
+        sales: Math.round(amount * 100) / 100,
+        amount: Math.round(amount * 100) / 100,
+        percentage: totalChannelSales > 0 ? Math.round((amount / totalChannelSales) * 10000) / 100 : 0
+      }))
+      .sort((a, b) => b.sales - a.sales);
+
+    const returnRate = Array.from(divTotalMap.entries())
+      .map(([division, total]) => {
+        const ret = divReturnMap.get(division) || 0;
+        return {
+          division,
+          returnCount: ret,
+          totalCount: total,
+          returnRate: total > 0 ? Math.round((ret / total) * 10000) / 100 : 0
+        };
+      })
+      .sort((a, b) => a.division.localeCompare(b.division));
+
+    return {
+      revenueTrend,
+      topCategories,
+      channelSplit,
+      returnRate
+    };
   }
 
   /**
@@ -128,7 +271,7 @@ class DataLoaderService {
           if (!line || !line.trim()) return;
           const cells = parseCSVLine(line);
           if (!headers) {
-            headers = cells.map(h => h.trim());
+            headers = cells.map((h) => h.trim());
           } else {
             const obj = {};
             for (let i = 0; i < headers.length; i++) {
@@ -145,7 +288,7 @@ class DataLoaderService {
   }
 
   /**
-   * Initializes datasets from CSV files and builds in-memory indexes in two linear passes.
+   * Initializes datasets from CSV files and builds in-memory indexes with periodic event-loop yielding.
    * @param {string} [dataDir]
    * @returns {Promise<{ salesCount: number, inventoryCount: number, categoriesCount: number, storesCount: number }>}
    */
@@ -174,11 +317,12 @@ class DataLoaderService {
     this._rawInventory = await this._streamParseCSV(inventoryPath);
     console.log(`[DataLoaderService] Inventory loaded: ${this._rawInventory.length} records`);
 
-    // Pass 1 over sales: find maxDateStr, distinct sets, monthly category-store matrix, and EDA aggregations
+    // Pass 1 over sales: find maxDateStr, distinct sets, monthly category-store matrix, EDA aggregations, and multi-dimensional EDA cube
     let maxDateStr = '';
     const monthSet = new Set();
     const catSet = new Set();
     const storeSet = new Set();
+    const divSet = new Set();
     const catStoreMap = new Map();
     const monthRevMap = new Map();
     const catQtyMap = new Map();
@@ -186,8 +330,12 @@ class DataLoaderService {
     let totalChannelSales = 0;
     const divTotalMap = new Map();
     const divReturnMap = new Map();
+    const cubeMap = new Map();
 
     for (let i = 0; i < this._rawSales.length; i++) {
+      if (i > 0 && i % 30000 === 0) {
+        await new Promise((r) => setImmediate(r));
+      }
       const row = this._rawSales[i];
       const date = row['Transaction Date'];
       const cat = row['Product Category'];
@@ -198,11 +346,12 @@ class DataLoaderService {
       const amt = Number(row['Sales Amount']) || 0;
       const isRet = Number(row['Is Return']) === 1 || row['Is Return'] === '1';
 
+      let monthKey = '';
       if (date) {
         if (date > maxDateStr) {
           maxDateStr = date;
         }
-        const monthKey = date.slice(0, 7);
+        monthKey = date.slice(0, 7);
         if (monthKey) {
           monthSet.add(monthKey);
           monthRevMap.set(monthKey, (monthRevMap.get(monthKey) || 0) + amt);
@@ -233,12 +382,39 @@ class DataLoaderService {
       }
 
       if (div) {
+        divSet.add(div);
         divTotalMap.set(div, (divTotalMap.get(div) || 0) + 1);
         if (isRet) {
           divReturnMap.set(div, (divReturnMap.get(div) || 0) + 1);
         }
       }
+
+      // Populate multi-dimensional EDA cube cell
+      const cubeKey = `${monthKey}:::${st || ''}:::${div || ''}:::${cat || ''}:::${ch || ''}`;
+      let cell = cubeMap.get(cubeKey);
+      if (!cell) {
+        cell = {
+          month: monthKey,
+          store: st || '',
+          division: div || '',
+          category: cat || '',
+          channel: ch || '',
+          revenue: 0,
+          qty: 0,
+          totalCount: 0,
+          returnCount: 0
+        };
+        cubeMap.set(cubeKey, cell);
+      }
+      cell.revenue += amt;
+      cell.qty += qty;
+      cell.totalCount += 1;
+      if (isRet) {
+        cell.returnCount += 1;
+      }
     }
+
+    this._edaCube = Array.from(cubeMap.values());
 
     // Pass 2 over sales: 30-day lookback product sales index
     const cutoffDate = new Date(maxDateStr || '2026-04-30');
@@ -262,12 +438,13 @@ class DataLoaderService {
     this._allMonths = Array.from(monthSet).sort();
     this._distinctCategories = Array.from(catSet).sort();
     this._distinctStores = Array.from(storeSet).sort();
+    this._distinctDivisions = Array.from(divSet).sort();
     this._monthlyCategoryStoreSales = catStoreMap;
 
     // Precompute complete chronological monthly sales history for every (category, store) pair
     this._buildMonthlyHistoryCache();
 
-    // Build EDA cache from Pass 1 maps
+    // Build default unfiltered EDA cache
     this._buildEdaCache({
       monthRevMap,
       catQtyMap,
@@ -300,7 +477,7 @@ class DataLoaderService {
     const allMonths = this._allMonths;
 
     for (const [key, mGroup] of this._monthlyCategoryStoreSales.entries()) {
-      const history = allMonths.map(m => mGroup.get(m) || 0);
+      const history = allMonths.map((m) => mGroup.get(m) || 0);
       const sum = history.reduce((acc, v) => acc + v, 0);
       const overallAvg = history.length > 0 ? sum / history.length : 0;
 
@@ -328,11 +505,11 @@ class DataLoaderService {
   }
 
   /**
-   * Generates cached results for EDA endpoints.
+   * Generates cached results for default unfiltered EDA endpoints.
    * @private
    */
   _buildEdaCache({ monthRevMap, catQtyMap, chanMap, totalChannelSales, divTotalMap, divReturnMap }) {
-    const revenueTrend = this._allMonths.map(m => ({
+    const revenueTrend = this._allMonths.map((m) => ({
       month: m,
       revenue: Math.round((monthRevMap.get(m) || 0) * 100) / 100
     }));

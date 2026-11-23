@@ -5,10 +5,11 @@
  * Uses a bounded LRU Map cache to prevent unbounded memory growth under arbitrary queries.
  */
 
-const dataLoaderService = require('./dataLoaderService');
+const { dataRepository } = require('../repositories');
 const { runForecast, runForecastSuper } = require('../algorithms');
 const { calcDiffPercent, roundTo } = require('../utils');
 const { CONSTANTS } = require('../config');
+const mlService = require('./mlService');
 
 class ForecastService {
   constructor() {
@@ -20,14 +21,14 @@ class ForecastService {
    * Retrieves list of distinct categories from data.
    */
   getCategories() {
-    return dataLoaderService.getDistinctCategories();
+    return dataRepository.getDistinctCategories();
   }
 
   /**
    * Retrieves list of distinct stores from data.
    */
   getStores() {
-    return dataLoaderService.getDistinctStores();
+    return dataRepository.getDistinctStores();
   }
 
   /**
@@ -61,7 +62,7 @@ class ForecastService {
       return cached;
     }
 
-    const { history, monthlyAvg, overallAvg } = dataLoaderService.getMonthlySalesHistory(cat, st);
+    const { history, monthlyAvg, overallAvg } = dataRepository.getMonthlySalesHistory(cat, st);
 
     const normalForecast = runForecast(history, numPeriods, CONSTANTS.FORECAST.DEFAULT_WINDOW_SIZE);
     const superForecast = runForecastSuper(history, numPeriods, monthlyAvg, overallAvg);
@@ -94,10 +95,16 @@ class ForecastService {
       }
     }
 
+    const mlBundle = mlService.getMlForecast(cat, st, numPeriods);
+
     const result = {
       periods: periodsLabels,
       normalForecast,
       superForecast,
+      mlForecast: mlBundle.mlForecast,
+      mlLower80: mlBundle.lower80,
+      mlUpper80: mlBundle.upper80,
+      mlModel: mlBundle.model,
       differences
     };
 

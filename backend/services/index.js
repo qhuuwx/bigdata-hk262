@@ -7,11 +7,13 @@ const salesStreamService = require('./salesStreamService');
 const edaService = require('./edaService');
 const forecastService = require('./forecastService');
 const inventoryService = require('./inventoryService');
+const mlService = require('./mlService');
 
 module.exports = {
   dataLoaderService,
   salesStreamService,
   edaService,
   forecastService,
-  inventoryService
+  inventoryService,
+  mlService
 };

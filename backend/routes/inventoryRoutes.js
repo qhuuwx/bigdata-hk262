@@ -9,6 +9,7 @@ const { inventoryController } = require('../controllers');
 const router = express.Router();
 
 router.get('/stream', (req, res) => inventoryController.getInventoryStream(req, res));
+router.get('/stream/events', (req, res) => inventoryController.streamInventoryEvents(req, res));
 router.get('/alerts', (req, res) => inventoryController.getInventoryAlerts(req, res));
 router.post('/reset', (req, res) => inventoryController.resetInventory(req, res));
 

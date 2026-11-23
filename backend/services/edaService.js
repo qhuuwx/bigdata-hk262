@@ -1,37 +1,49 @@
 ﻿/**
  * EDA Analytics Service
- * Provides business intelligence datasets for the 4 EDA charts.
+ * Routes business intelligence queries through the unified DataRepository abstraction
+ * (supports InMemory, Lakehouse Gold Marts, and Shadow Parity modes).
  */
 
-const dataLoaderService = require('./dataLoaderService');
+const { dataRepository } = require('../repositories');
 
 class EdaService {
   /**
    * Retrieves revenue trend grouped by month.
+   * @param {Object} [filters]
    */
-  getRevenueTrend() {
-    return dataLoaderService.getEdaCache().revenueTrend || [];
+  getRevenueTrend(filters = {}) {
+    return dataRepository.queryFilteredEda(filters).revenueTrend || [];
   }
 
   /**
    * Retrieves top 10 best-selling product categories by Qty Sold.
+   * @param {Object} [filters]
    */
-  getTopCategories() {
-    return dataLoaderService.getEdaCache().topCategories || [];
+  getTopCategories(filters = {}) {
+    return dataRepository.queryFilteredEda(filters).topCategories || [];
   }
 
   /**
    * Retrieves revenue distribution across sales channels.
+   * @param {Object} [filters]
    */
-  getChannelSplit() {
-    return dataLoaderService.getEdaCache().channelSplit || [];
+  getChannelSplit(filters = {}) {
+    return dataRepository.queryFilteredEda(filters).channelSplit || [];
   }
 
   /**
    * Retrieves return rates (%) by product division.
+   * @param {Object} [filters]
    */
-  getReturnRate() {
-    return dataLoaderService.getEdaCache().returnRate || [];
+  getReturnRate(filters = {}) {
+    return dataRepository.queryFilteredEda(filters).returnRate || [];
+  }
+
+  /**
+   * Retrieves distinct filter dimensions (stores, divisions, categories, months).
+   */
+  getFilterMetadata() {
+    return dataRepository.getEdaMetadata();
   }
 }
 

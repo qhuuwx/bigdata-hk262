@@ -12,5 +12,6 @@ router.get('/revenue-trend', (req, res) => edaController.getRevenueTrend(req, re
 router.get('/top-categories', (req, res) => edaController.getTopCategories(req, res));
 router.get('/channel-split', (req, res) => edaController.getChannelSplit(req, res));
 router.get('/return-rate', (req, res) => edaController.getReturnRate(req, res));
+router.get('/filters', (req, res) => edaController.getFilterMetadata(req, res));
 
 module.exports = router;

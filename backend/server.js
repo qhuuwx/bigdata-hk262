@@ -5,7 +5,7 @@
  */
 
 const { env } = require('./config');
-const { dataLoaderService } = require('./services');
+const { dataRepository } = require('./repositories');
 const app = require('./app');
 
 let serverInstance = null;
@@ -13,20 +13,20 @@ let isShuttingDown = false;
 
 async function startServer() {
   try {
-    console.log(`[Server] Starting Retail Analytics Backend in ${env.NODE_ENV} mode...`);
+    console.log(`[Server] Starting Retail Analytics Backend in ${env.NODE_ENV} mode (DATA_BACKEND=${env.DATA_BACKEND})...`);
 
-    // Open HTTP listener immediately so /api/health reports 'loading' and readinessGuard returns 503 during CSV ingestion
+    // Open HTTP listener immediately so /api/health reports 'loading' and readinessGuard returns 503 during initialization
     await new Promise((resolve, reject) => {
       const srv = app.listen(env.PORT, '0.0.0.0', () => {
         serverInstance = srv;
-        console.log(`[Server] HTTP port bound on http://0.0.0.0:${env.PORT} (initializing in-memory data pipeline...)`);
+        console.log(`[Server] HTTP port bound on http://0.0.0.0:${env.PORT} (initializing data repository...)`);
         resolve();
       });
       srv.on('error', reject);
     });
 
-    // Bootstrap data pipeline into memory
-    await dataLoaderService.init(env.DATA_DIR);
+    // Bootstrap active data repository (memory | lakehouse | shadow)
+    await dataRepository.init();
     console.log(`[Server] Retail Analytics Dashboard Backend READY on http://0.0.0.0:${env.PORT}`);
 
     return serverInstance;
