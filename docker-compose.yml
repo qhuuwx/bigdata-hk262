@@ -1,8 +1,9 @@
 # ==============================================================================
 # Docker Compose - Multi-Container Orchestration
 # Big Data Demand Forecasting & Smart Inventory System (bigdata_inventory)
-# Version: 3.8
-# Services: backend (Node 18 Express API), frontend (Nginx Alpine reverse proxy)
+# Profiles:
+#   - default            : backend (Node Express REST/SSE/ML API) + frontend (Nginx Alpine)
+#   - --profile pipeline : adds Redpanda (Kafka-compatible), Redis 7, ClickHouse
 # ==============================================================================
 
 version: '3.8'
@@ -19,6 +20,10 @@ services:
       - PORT=3000
       - NODE_ENV=production
       - DATA_DIR=/app/data
+      - LAKEHOUSE_DIR=/app/data/lakehouse
+      - DATA_BACKEND=${DATA_BACKEND:-memory}
+      - REDIS_URL=${REDIS_URL:-}
+      - CLICKHOUSE_URL=${CLICKHOUSE_URL:-}
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 5s
@@ -40,6 +45,52 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - inventory-net
+
+  # ----------------------------------------------------------------------------
+  # Enterprise Data Pipeline Profile (`docker compose --profile pipeline up -d`)
+  # ----------------------------------------------------------------------------
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.2.5
+    profiles: ["pipeline"]
+    container_name: bigdata_inventory_redpanda
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp=1
+      - --memory=512M
+      - --reserve-memory=0M
+      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr=internal://redpanda:9092,external://localhost:19092
+      - --schema-registry-addr=internal://0.0.0.0:8081,external://0.0.0.0:18081
+    ports:
+      - "19092:19092"
+      - "18081:18081"
+    networks:
+      - inventory-net
+
+  redis:
+    image: redis:7-alpine
+    profiles: ["pipeline"]
+    container_name: bigdata_inventory_redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    networks:
+      - inventory-net
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8-alpine
+    profiles: ["pipeline"]
+    container_name: bigdata_inventory_clickhouse
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    environment:
+      - CLICKHOUSE_DB=retail_gold
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
     networks:
       - inventory-net
 

@@ -1,11 +1,16 @@
 {
   "name": "bigdata_inventory",
   "version": "1.0.0",
-  "description": "Big Data Demand Forecasting and Smart Inventory Management",
+  "description": "Big Data Demand Forecasting and Smart Inventory Management Platform",
   "main": "backend/server.js",
   "scripts": {
     "start": "node backend/server.js",
-    "test": "node test_endpoints.js"
+    "start:lakehouse": "DATA_BACKEND=lakehouse node backend/server.js",
+    "test": "node test_endpoints.js",
+    "test:unit": "node test_m1.js && node test_endpoints.js --unit-only",
+    "test:stress": "node scripts/stress_test.js",
+    "test:parity": "node scripts/shadow_parity.js",
+    "eda": "node scripts/eda_report.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

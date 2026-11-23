@@ -1,7 +1,7 @@
 # ==============================================================================
-# Dockerfile.backend - Node.js Analytical Backend Service
+# Dockerfile.backend - Node.js Analytical & ML-Serving Backend Service
 # Big Data Demand Forecasting & Smart Inventory System (bigdata_inventory)
-# Base Image: node:18-alpine (minimal footprint, pure JS execution)
+# Base Image: node:18-alpine (minimal footprint, pure JS + precomputed ML/Gold marts)
 # ==============================================================================
 
 FROM node:18-alpine
@@ -12,7 +12,9 @@ WORKDIR /app
 # Configure production environment variables
 ENV NODE_ENV=production \
     PORT=3000 \
-    DATA_DIR=/app/data
+    DATA_DIR=/app/data \
+    LAKEHOUSE_DIR=/app/data/lakehouse \
+    DATA_BACKEND=memory
 
 # Copy dependency manifests first to optimize Docker layer caching
 COPY package*.json ./
@@ -20,11 +22,13 @@ COPY package*.json ./
 # Install only production dependencies
 RUN npm install --production --silent
 
-# Copy backend source code, algorithms, datasets, and test suite
+# Copy backend source code, algorithms, ML serving artifacts, scripts, datasets, and test suites
 COPY backend/ ./backend/
 COPY algorithms/ ./algorithms/
+COPY ml/artifacts/ ./ml/artifacts/
+COPY scripts/ ./scripts/
 COPY data/ ./data/
-COPY test_endpoints.js ./
+COPY test_m1.js test_endpoints.js ./
 
 # Expose backend API port
 EXPOSE 3000

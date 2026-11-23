@@ -1,22 +1,33 @@
 # ==============================================================================
 # .dockerignore - Docker Build Context Optimization
-# Prevents host artifacts, large non-source folders, and temporary files
-# from being transferred to the Docker daemon.
+# Prevents host virtualenvs, node_modules, LaTeX sources, and temporary files
+# from bloating the Docker build context while keeping data & ML serving caches.
 # ==============================================================================
 
 # Dependencies (installed freshly inside Linux containers)
 node_modules/
+frontend/node_modules/
+frontend/dist/
+pipelines/.venv/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Version control & repository metadata
+# Python caches & heavy serialized training checkpoints (JSON serving cache is kept)
+**/__pycache__/
+.pytest_cache/
+ml/artifacts/*.joblib
+
+# Version control & academic report/slides (excluded from container images)
 .git/
 .gitignore
+LaTeX/
 
 # Teamwork agent & AI tooling metadata
 .agents/
 .gemini/
+.claude/
+.cursor/
 
 # Output and temporary results
 data/results/

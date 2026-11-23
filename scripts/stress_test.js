@@ -301,6 +301,108 @@ async function runStressSuite() {
     console.log('  ✔ All 11 invalid forecast body variations rejected with 400 BAD_REQUEST');
 
     // =========================================================================
+    // PHASE 4B: SSE CONNECTION CHURN & FILTERED EDA CUBE CONCURRENCY TEST
+    // =========================================================================
+    console.log('\n[Phase 4B] Testing Concurrent SSE Streams (/events) & Filtered EDA Cube Queries...');
+
+    // 1. Open 20 concurrent SSE streams (10 sales, 10 inventory), read first event frame, then disconnect
+    async function verifySseStream(endpoint, expectedEvent) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
+      try {
+        const res = await fetch(`${BASE_URL}${endpoint}`, {
+          headers: { Accept: 'text/event-stream' },
+          signal: controller.signal
+        });
+        assert.strictEqual(res.status, 200);
+        const ct = res.headers.get('content-type') || '';
+        assert.ok(ct.includes('text/event-stream'), `Expected text/event-stream, got ${ct}`);
+
+        const reader = res.body.getReader();
+        const { value } = await reader.read();
+        const chunkText = new TextDecoder().decode(value);
+        assert.ok(chunkText.includes(`event: ${expectedEvent}`), `Missing event: ${expectedEvent} in SSE frame`);
+        const dataMatch = chunkText.match(/data:\s*(\{.*\}|\[.*\])/);
+        assert.ok(dataMatch, 'Missing JSON data payload in SSE frame');
+        const parsed = JSON.parse(dataMatch[1]);
+        if (expectedEvent === 'batch') {
+          assert.strictEqual(parsed.length, 20);
+        } else {
+          assert.strictEqual(parsed.healthy + parsed.low + parsed.over, parsed.total);
+        }
+        await reader.cancel();
+      } finally {
+        clearTimeout(timer);
+        controller.abort();
+      }
+    }
+
+    const sseTasks = [];
+    for (let i = 0; i < 10; i++) {
+      sseTasks.push(verifySseStream('/api/stream/sales/events', 'batch'));
+      sseTasks.push(verifySseStream('/api/inventory/stream/events', 'inventory'));
+    }
+    await Promise.all(sseTasks);
+
+    // 2. Verify /api/eda/filters metadata & 60 concurrent filtered EDA cube requests
+    const filterMetaRes = await rawRequest('/api/eda/filters');
+    assert.strictEqual(filterMetaRes.status, 200);
+    assert.strictEqual(filterMetaRes.data.stores.length, 40);
+    assert.strictEqual(filterMetaRes.data.divisions.length, 3);
+    assert.strictEqual(filterMetaRes.data.months.length, 11);
+
+    const filteredRevRes = await rawRequest(
+      '/api/eda/revenue-trend?store=STR-1006&division=Scholar%20Footwear&startMonth=2025-08&endMonth=2026-02'
+    );
+    assert.strictEqual(filteredRevRes.status, 200);
+    assert.strictEqual(filteredRevRes.data.length, 7);
+    assert.strictEqual(filteredRevRes.data[0].month, '2025-08');
+    assert.strictEqual(filteredRevRes.data[6].month, '2026-02');
+
+    const filterBatch = [];
+    for (let i = 0; i < 60; i++) {
+      const st = stores[i % stores.length];
+      const qs = `?store=${encodeURIComponent(st)}&startMonth=2025-09&endMonth=2026-03`;
+      const mod = i % 4;
+      if (mod === 0) filterBatch.push(rawRequest(`/api/eda/revenue-trend${qs}`));
+      else if (mod === 1) filterBatch.push(rawRequest(`/api/eda/top-categories${qs}`));
+      else if (mod === 2) filterBatch.push(rawRequest(`/api/eda/channel-split${qs}`));
+      else filterBatch.push(rawRequest(`/api/eda/return-rate${qs}`));
+    }
+    const filterResults = await Promise.all(filterBatch);
+    for (const r of filterResults) {
+      assert.strictEqual(r.status, 200);
+      assert.ok(Array.isArray(r.data));
+    }
+
+    console.log('  ✔ 20/20 concurrent SSE streams connected, emitted valid initial frames, and disconnected cleanly');
+    console.log('  ✔ 60/60 concurrent multi-dimensional filtered EDA cube queries returned 200 OK');
+
+    // 3. Verify ML Serving Endpoints (/api/ml/metrics, /api/ml/forecast, /api/ml/classify-inventory)
+    const mlMetricsRes = await rawRequest('/api/ml/metrics');
+    assert.strictEqual(mlMetricsRes.status, 200);
+    assert.strictEqual(typeof mlMetricsRes.data, 'object');
+
+    const mlForecastRes = await rawRequest('/api/ml/forecast', {
+      method: 'POST',
+      body: { category: categories[0], store: stores[0], periods: 12 }
+    });
+    assert.strictEqual(mlForecastRes.status, 200);
+    assert.strictEqual(mlForecastRes.data.mlForecast.length, 12);
+    assert.strictEqual(mlForecastRes.data.lower80.length, 12);
+    assert.strictEqual(mlForecastRes.data.upper80.length, 12);
+    assert.strictEqual(mlForecastRes.data.comparisonRows.length, 12);
+
+    const mlClassifyRes = await rawRequest('/api/ml/classify-inventory', {
+      method: 'POST',
+      body: { qtyOnHand: 5, avgDailySales: 1.5, category: categories[0], store: stores[0] }
+    });
+    assert.strictEqual(mlClassifyRes.status, 200);
+    assert.strictEqual(mlClassifyRes.data.predictedClass, 'low');
+    assert.ok(mlClassifyRes.data.probabilities.low > 0.5);
+    console.log('  ✔ ML endpoints (/api/ml/metrics, /api/ml/forecast, /api/ml/classify-inventory) verified');
+
+    // =========================================================================
     // PHASE 5: FORECAST LRU CACHE BOUNDING & MEMORY STABILITY TEST
     // =========================================================================
     console.log('\n[Phase 5] Verifying ForecastService LRU Cache Bounding & Memory Stability...');

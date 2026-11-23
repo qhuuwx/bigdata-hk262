@@ -40,6 +40,12 @@ frontend/.vite/
 data/*.csv
 *.csv
 data/results/*
+data/lakehouse/
+ml/artifacts/*.joblib
+ml/artifacts/ml_predictions_cache.json
+pipelines/.venv/
+**/__pycache__/
+.pytest_cache/
 !data/results/.gitkeep
 !data/.gitkeep
 
