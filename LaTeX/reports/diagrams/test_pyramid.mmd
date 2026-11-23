@@ -1,5 +1,5 @@
 flowchart TB
-    T4["Tier 4: Workflows & Stress (5)"] --> T3["Tier 3: Cross-Feature (5)"]
-    T3 --> T2["Tier 2: Boundary Cases (60)"]
-    T2 --> T1["Tier 1: Features F1..F11 (55)"]
-    T1 --> T0["Tier 0 & test_m1: DataLoader (4)"]
+    STR["Phase 4B & Stress Test (750 req + 20 SSE + Fuzzing)"] --> PAR["Shadow Parity (4 combos + 1,080 series + Live Lakehouse)"]
+    PAR --> PY["Python Pipeline & ML (pytest: 8/8)"]
+    PY --> API["API Integration & Boundary (Tier 1..4: 125/125)"]
+    API --> UNIT["Unit & DataLoader (test_m1 + unit-only: 36/36)"]

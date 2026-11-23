@@ -4,7 +4,7 @@
 \part{Tổng quan Bài toán}
 \label{part:ch1}
 
-Chương này phân tích bài toán nghiệp vụ và các yêu cầu đặt ra cho hệ thống phân tích bán lẻ \texttt{bigdata\_inventory}. Mục~\ref{sec:ch1-context} trình bày bối cảnh ngành bán lẻ giày dép, phát biểu bài toán và các câu hỏi nghiệp vụ cốt lõi. Mục~\ref{sec:users} xác định đối tượng người dùng và các quyết định cần hỗ trợ. Mục~\ref{sec:requirements} liệt kê yêu cầu chức năng và yêu cầu phi chức năng gắn với kiến trúc hệ thống. Mục~\ref{sec:kpi} định nghĩa các chỉ số đánh giá (KPI) và ngưỡng phân loại thuật toán, Mục~\ref{sec:data-overview} mô tả hai tập dữ liệu nguồn, và Mục~\ref{sec:scope} nêu phạm vi cùng các giả định thực hiện.
+Chương này phân tích bài toán nghiệp vụ và các yêu cầu đặt ra cho hệ thống phân tích bán lẻ \mintinline{text}{bigdata_inventory}. Mục~\ref{sec:ch1-context} trình bày bối cảnh ngành bán lẻ giày dép, phát biểu bài toán và các câu hỏi nghiệp vụ cốt lõi. Mục~\ref{sec:users} xác định đối tượng người dùng và các quyết định cần hỗ trợ. Mục~\ref{sec:requirements} liệt kê yêu cầu chức năng và yêu cầu phi chức năng gắn với kiến trúc hệ thống. Mục~\ref{sec:kpi} định nghĩa các chỉ số đánh giá (KPI) và ngưỡng phân loại thuật toán, Mục~\ref{sec:data-overview} mô tả hai tập dữ liệu nguồn, và Mục~\ref{sec:scope} nêu phạm vi cùng các giả định thực hiện.
 
 \section{Bối cảnh và bài toán}
 \label{sec:ch1-context}
@@ -24,12 +24,12 @@ Nếu vận hành theo phương thức báo cáo tĩnh hoặc xử lý thủ cô
 
 \subsection{Phát biểu bài toán}
 \label{sec:problem}
-Bài toán của nhóm là \textbf{xây dựng hệ thống phân tích dữ liệu bán lẻ thời gian thực, dự báo nhu cầu và giám sát tồn kho thông minh (\texttt{bigdata\_inventory})}. Hệ thống đọc dữ liệu giao dịch bán hàng và tồn kho từ tập tin CSV quy mô lớn ($410.506$ bản ghi), tổ chức chỉ mục trên bộ nhớ chính (RAM) để phản hồi nhanh các truy vấn phân tích, và cung cấp bảng điều khiển trực quan (\textit{dashboard}) gồm ba thẻ chức năng: \textbf{EDA \& Streaming}, \textbf{Dự báo Nhu cầu} và \textbf{Tồn kho Thông minh} (Hình~\ref{fig:system_overview}).
+Bài toán của nhóm là \textbf{xây dựng hệ thống phân tích dữ liệu bán lẻ thời gian thực, dự báo nhu cầu và giám sát tồn kho thông minh (\mintinline{text}{bigdata_inventory})}. Hệ thống hỗ trợ kiến trúc dữ liệu kép (\mintinline{javascript}{DATA_BACKEND=memory|lakehouse|shadow}) đọc $410.506$ bản ghi từ tập tin CSV vào RAM ($2{,}5\text{ s}$) hoặc nạp trực tiếp gói dữ liệu Gold tiền tổng hợp từ đường ống \textit{Medallion Lakehouse} ($16\text{ ms}$), và cung cấp bảng điều khiển trực quan Apache ECharts 6 gồm ba thẻ chức năng: \textbf{EDA \& Streaming}, \textbf{Dự báo Nhu cầu} và \textbf{Tồn kho Thông minh} (Hình~\ref{fig:system_overview}).
 
 \begin{figure}[H]
 	\centering
 	\mermaidfile[width=0.95\linewidth, keepaspectratio]{diagrams/system_overview.mmd}
-	\caption{Tổng quan luồng dữ liệu từ tập tin CSV đến ba phân hệ của \texttt{bigdata\_inventory}}
+	\caption{Tổng quan luồng dữ liệu hai chế độ từ nguồn CSV/Lakehouse đến ba phân hệ của \texttt{bigdata\_inventory}}
 	\label{fig:system_overview}
 \end{figure}
 
@@ -37,35 +37,37 @@ Bài toán của nhóm là \textbf{xây dựng hệ thống phân tích dữ li�
 
 Hệ thống hướng tới ba mục tiêu cụ thể:
 \begin{itemize}[topsep=0pt, itemsep=1pt]
-	\item \textbf{Giám sát luồng giao dịch và khám phá dữ liệu (EDA):} Mô phỏng luồng giao dịch bán hàng theo thời gian thực kết hợp bốn biểu đồ tổng hợp doanh thu theo tháng, top $10$ danh mục bán chạy, tỷ trọng doanh thu theo kênh và tỷ lệ hoàn trả theo nhóm sản phẩm.
-	\item \textbf{Đối chiếu hai thuật toán dự báo nhu cầu:} Cho phép người dùng chọn cặp danh mục và cửa hàng cùng số kỳ tương lai ($4$--$24$ kỳ) để so sánh trực tiếp thuật toán \textit{Normal Forecast} (Trung bình trượt đơn giản --- SMA) và \textit{Super Forecast} (Trung bình trượt có trọng số --- WMA kết hợp hệ số mùa vụ).
-	\item \textbf{Phân loại tồn kho tích lũy và cảnh báo ưu tiên:} Đánh giá sức khỏe tồn kho theo số ngày bao phủ nhu cầu dựa trên doanh số $30$ ngày gần nhất, cộng dồn trạng thái theo từng lô dữ liệu và lọc ra danh sách top $10$ cảnh báo khẩn cấp nhất.
+	\item \textbf{Giám sát luồng giao dịch SSE và khám phá dữ liệu đa chiều (OLAP Cube):} Đẩy luồng giao dịch thời gian thực qua Server-Sent Events (\mintinline{text}{/events}) có dự phòng polling tự động, kết hợp bộ lọc cắt lớp đa chiều theo Cửa hàng, Nhóm hàng và khoảng tháng trên $7.517$ ô khối lập phương cho bốn biểu đồ ECharts 6.
+	\item \textbf{Đối chiếu ba phương pháp dự báo nhu cầu kèm khoảng tin cậy:} Cho phép người dùng chọn cặp danh mục và cửa hàng cùng số kỳ tương lai ($4$--$24$ kỳ) để so sánh \textit{Normal Forecast} (SMA), \textit{Super Forecast} (WMA + mùa vụ) và mô hình học máy \textbf{Hybrid\_GBDT\_Seasonal\_Ensemble} kèm dải khoảng tin cậy $80\%$.
+	\item \textbf{Phân loại tồn kho tích lũy, cảnh báo ưu tiên và mô phỏng rủi ro ML:} Đánh giá sức khỏe tồn kho theo số ngày bao phủ nhu cầu $30$ ngày, cộng dồn trạng thái qua SSE/polling, lọc top $10$ cảnh báo ưu tiên và tích hợp bộ mô phỏng xác suất rủi ro \textbf{SMOTENC\_HistGBDT\_Tuned} theo thời gian thực.
 \end{itemize}
 
 \medskip
 
-Bảng~\ref{tab:business-questions} liệt kê năm câu hỏi nghiệp vụ (Q1--Q5) mà hệ thống giải đáp thông qua ba phân hệ giao diện.
+Bảng~\ref{tab:business-questions} liệt kê sáu câu hỏi nghiệp vụ (Q1--Q6) mà hệ thống giải đáp thông qua ba phân hệ giao diện.
 
 \begin{table}[H]
 	\centering
-	\caption{Câu hỏi nghiệp vụ trọng tâm của hệ thống}
-	\label{tab:business-questions}
 	\footnotesize
 	\begin{tabular}{c p{11.5cm} p{3.5cm}}
 		\toprule
-		\textbf{Mã} & \textbf{Câu hỏi nghiệp vụ}                                                                                                                                 & \textbf{Thẻ hỗ trợ} \\
+		\textbf{Mã} & \textbf{Câu hỏi nghiệp vụ}                                                                                                                                                               & \textbf{Thẻ hỗ trợ} \\
 		\midrule
-		Q1          & Các giao dịch bán hàng mới phát sinh theo thời gian thực có thông số (ngày, nhóm hàng, danh mục, cửa hàng, số lượng, doanh thu) như thế nào?               & EDA \& Streaming    \\
-		Q2          & Xu hướng doanh thu theo tháng, top $10$ danh mục bán chạy, cơ cấu kênh bán hàng và tỷ lệ hoàn trả theo nhóm sản phẩm thay đổi ra sao?                      & EDA \& Streaming    \\
-		Q3          & Với một danh mục và cửa hàng cụ thể trong $4$--$24$ kỳ tới, dự báo theo SMA khác biệt thế nào so với WMA kết hợp yếu tố mùa vụ?                            & Dự báo Nhu cầu      \\
-		Q4          & Ở những kỳ nào hai thuật toán dự báo cho kết quả chênh lệch đáng kể (tối đa $8$ kỳ đầu tiên) và thuật toán nào cho mức dự báo cao hơn?                     & Dự báo Nhu cầu      \\
-		Q5          & Tỷ trọng các mặt hàng đang ở trạng thái \textit{Healthy}, \textit{Low Stock}, \textit{Overstock} là bao nhiêu và danh mục/cửa hàng nào cần xử lý khẩn cấp? & Tồn kho Thông minh  \\
+		Q1          & Các giao dịch bán hàng mới phát sinh theo luồng SSE/polling có thông số (ngày, nhóm hàng, danh mục, cửa hàng, số lượng, doanh thu) như thế nào?                                          & EDA \& Streaming    \\
+		Q2          & Xu hướng doanh thu tháng, top $10$ danh mục, cơ cấu kênh và tỷ lệ hoàn trả thay đổi ra sao khi lọc theo Cửa hàng, Nhóm hàng và khoảng tháng?                                             & EDA \& Streaming    \\
+		Q3          & Với một danh mục và cửa hàng trong $4$--$24$ kỳ tới, dự báo SMA, WMA+Mùa vụ và mô hình học máy \textit{Hybrid GBDT} (kèm khoảng tin cậy $80\%$) khác biệt thế nào?                       & Dự báo Nhu cầu      \\
+		Q4          & Ở những kỳ nào SMA và WMA+Mùa vụ cho kết quả chênh lệch đáng kể (tối đa $8$ kỳ đầu tiên) và thuật toán nào cho mức dự báo cao hơn?                                                       & Dự báo Nhu cầu      \\
+		Q5          & Tỷ trọng các mặt hàng \textit{Healthy}, \textit{Low Stock}, \textit{Overstock} trên luồng tích lũy là bao nhiêu và cặp danh mục/cửa hàng nào cần xử lý khẩn cấp?                         & Tồn kho Thông minh  \\
+		Q6          & Với các thông số tồn kho giả lập (\mintinline{text}{Qty}, doanh số $30$ ngày, trạng thái giá, đơn giá), xác suất rủi ro mô hình \textit{SMOTENC} và cảnh báo hàng tồn chết là bao nhiêu? & Tồn kho Thông minh  \\
 		\bottomrule
 	\end{tabular}
+	\caption{Câu hỏi nghiệp vụ trọng tâm của hệ thống}
+	\label{tab:business-questions}
 \end{table}
 
 \section{Người dùng và Quyết định cần hỗ trợ}
 \label{sec:users}
+Hình~\ref{fig:decision_levels} tóm tắt ba nhóm người dùng, các cấp quyết định tương ứng và các thành phần giao diện phục vụ từng cấp. Hệ thống phục vụ quyết định quản trị bán lẻ mang tính bán cấu trúc (\textit{semi-structured decision})~\cite{turban2010dsbi}: máy chủ tự động hóa khâu tổng hợp dữ liệu lớn, tính toán dự báo và phân loại trạng thái, còn người quản lý dựa trên kết quả trực quan để đưa ra quyết định điều phối nhập hàng hoặc xả tồn. Bảng~\ref{tab:user-decision-levels} trình bày chi tiết từng nhóm người dùng và thành phần hỗ trợ trên ứng dụng web.
 
 \begin{figure}[H]
 	\centering
@@ -73,8 +75,6 @@ Bảng~\ref{tab:business-questions} liệt kê năm câu hỏi nghiệp vụ (Q1
 	\caption{Các cấp quyết định và thành phần giao diện hỗ trợ người dùng}
 	\label{fig:decision_levels}
 \end{figure}
-
-Hình~\ref{fig:decision_levels} tóm tắt ba nhóm người dùng, các cấp quyết định tương ứng và các thành phần giao diện phục vụ từng cấp. Hệ thống phục vụ quyết định quản trị bán lẻ mang tính bán cấu trúc (\textit{semi-structured decision})~\cite{turban2010dsbi}: máy chủ tự động hóa khâu tổng hợp dữ liệu lớn, tính toán dự báo và phân loại trạng thái, còn người quản lý dựa trên kết quả trực quan để đưa ra quyết định điều phối nhập hàng hoặc xả tồn. Bảng~\ref{tab:user-decision-levels} trình bày chi tiết từng nhóm người dùng và thành phần hỗ trợ trên ứng dụng web.
 
 \begin{table}[H]
 	\centering
@@ -99,43 +99,48 @@ Hình~\ref{fig:decision_levels} tóm tắt ba nhóm người dùng, các cấp q
 
 \subsection{Yêu cầu chức năng}
 \label{sec:functional-requirements}
-Bảng~\ref{tab:functional-requirements} tổng hợp chín yêu cầu chức năng (FR-01 đến FR-09) được hiện thực xuyên suốt từ tầng nạp dữ liệu, tầng thuật toán đến giao diện React 18, gắn với các câu hỏi nghiệp vụ trong Bảng~\ref{tab:business-questions}.
+Bảng~\ref{tab:functional-requirements} tổng hợp $12$ yêu cầu chức năng (FR-01 đến FR-12) được hiện thực xuyên suốt từ đường ống Medallion Lakehouse, tầng phục vụ Node.js/ML đến giao diện React 18 + ECharts 6, gắn với các câu hỏi nghiệp vụ Q1--Q6.
 
 \begin{table}[H]
 	\centering
 	\footnotesize
-	\begin{tabular}{c p{9.2cm} p{3.6cm} c}
+	\setlength{\tabcolsep}{3.5pt}
+	\begin{tabular}{c p{9.1cm} p{3.7cm} c}
 		\toprule
-		\textbf{Mã} & \textbf{Mô tả yêu cầu}                                                                                                                                                                                                                       & \textbf{Dịch vụ / Giao diện}                      & \textbf{Câu hỏi} \\
+		\textbf{Mã} & \textbf{Mô tả yêu cầu}                                                                                                                                                                                                                                           & \textbf{Dịch vụ / Giao diện}                                                        & \textbf{Câu hỏi} \\
 		\midrule
-		FR-01       & Nạp toàn bộ tập tin bán hàng ($125.751$ dòng) và tồn kho ($284.755$ dòng) vào RAM khi khởi động; xây dựng sẵn chỉ mục doanh số $30$ ngày theo sản phẩm và chuỗi lịch sử theo tháng.                                                          & \texttt{dataLoaderService}                        & Q1--Q5           \\
-		FR-02       & Cung cấp API kiểm tra trạng thái sẵn sàng (\texttt{GET /api/health}) và chặn các yêu cầu chưa sẵn sàng bằng mã HTTP \texttt{503} thông qua \texttt{readinessGuard}.                                                                          & \texttt{healthController}                         & --               \\
-		FR-03       & Mô phỏng luồng giao dịch bán hàng: trả về ngẫu nhiên $20$ giao dịch mỗi lần gọi (\texttt{GET /api/stream/sales}); giao diện thăm dò $2$ giây/lần, chèn lên đầu bảng và giới hạn tối đa $100$ dòng.                                           & \texttt{salesStreamService}, \textbf{EdaTab}      & Q1               \\
-		FR-04       & Tính toán sẵn và phục vụ dữ liệu cho $4$ biểu đồ EDA: xu hướng doanh thu theo tháng, top $10$ danh mục theo số lượng bán, cơ cấu kênh bán hàng và tỷ lệ hoàn trả theo nhóm sản phẩm.                                                         & \texttt{edaService}, \textbf{EdaTab}              & Q2               \\
-		FR-05       & Cung cấp danh sách danh mục (\texttt{GET /api/categories}) và cửa hàng (\texttt{GET /api/stores}) được trích xuất duy nhất và sắp xếp thứ tự từ dữ liệu thực tế.                                                                             & \texttt{forecastController}, \textbf{ForecastTab} & Q3               \\
-		FR-06       & Chạy song song \textit{Normal Forecast} (SMA, $N=4$) và \textit{Super Forecast} (WMA trọng số $[1, 2, 3, 4]$ nhân hệ số mùa vụ) cho $4$--$24$ kỳ (\texttt{POST /api/forecast}), có bộ nhớ đệm kết quả.                                       & \texttt{forecastService}, \textbf{ForecastTab}    & Q3               \\
-		FR-07       & So sánh hai chuỗi dự báo sau khi chuẩn hóa \texttt{toFixed(2)}, trích xuất tối đa $8$ kỳ sai khác đầu tiên kèm độ lệch tuyệt đối, phần trăm chênh lệch và thuật toán có giá trị cao hơn.                                                     & \texttt{forecastService}, \textbf{ForecastTab}    & Q4               \\
-		FR-08       & Xử lý luồng tồn kho theo lô $50$ bản ghi mỗi $2$ giây (\texttt{GET /api/inventory/stream}), phân loại \textit{Healthy}/\textit{Low Stock}/\textit{Overstock} và cộng dồn bền vững trên RAM máy chủ (kèm \texttt{POST /api/inventory/reset}). & \texttt{inventoryService}, \textbf{InventoryTab}  & Q5               \\
-		FR-09       & Lọc danh sách Top $10$ cảnh báo tồn kho nghiêm trọng (\texttt{GET /api/inventory/alerts}), ưu tiên hiển thị \textit{Low Stock} (\textit{Khẩn cấp}) trước \textit{Overstock} (\textit{Chú ý}).                                                & \texttt{inventoryService}, \textbf{InventoryTab}  & Q5               \\
+		FR-01       & Hỗ trợ khởi tạo hai chế độ: nạp luồng $410.506$ dòng CSV vào RAM (nhường sự kiện mỗi $30.000$ dòng) hoặc nạp gói Gold \mintinline{text}{serving_bundle.json} của Lakehouse ($< 100\text{ ms}$).                                                                  & \mintinline{javascript}{dataRepository}, \mintinline{javascript}{dataLoaderService} & Q1--Q6           \\
+		FR-02       & Cung cấp API kiểm tra trạng thái sẵn sàng (\mintinline{text}{GET /api/health} kèm tên chế độ backend) và chặn truy cập khi chưa sẵn sàng bằng mã \mintinline{text}{HTTP 503}.                                                                                    & \mintinline{javascript}{healthController}, \mintinline{javascript}{readinessGuard}  & --               \\
+		FR-03       & Đẩy luồng giao dịch qua SSE (\mintinline{text}{/api/stream/sales/events}, $20$ dòng/$2\text{ s}$, nhịp tim $15\text{ s}$) kèm dự phòng HTTP polling khi có $\ge 2$ lỗi, giữ tối đa $100$ dòng.                                                                   & \mintinline{javascript}{salesStreamService}, \textbf{EdaTab}                        & Q1               \\
+		FR-04       & Phục vụ $4$ biểu đồ EDA ECharts 6 hỗ trợ cắt lớp OLAP Cube (\mintinline{text}{GET /api/eda/filters} và tham số \mintinline{text}{store}, \mintinline{text}{division}, \mintinline{text}{startMonth}, \mintinline{text}{endMonth}).                               & \mintinline{javascript}{edaService}, \textbf{EdaTab}                                & Q2               \\
+		FR-05       & Cung cấp danh sách danh mục và cửa hàng duy nhất, sắp xếp thứ tự qua \mintinline{text}{/api/forecast/*} (duy trì bí danh tương thích \mintinline{text}{/api/categories}, \mintinline{javascript}{/api/stores}).                                                  & \mintinline{javascript}{forecastController}, \textbf{ForecastTab}                   & Q3               \\
+		FR-06       & Tính song song SMA-4, WMA+Mùa vụ ($4$--$24$ kỳ, LRU $1.500$ mục) và chuỗi dự báo học máy \textit{Hybrid GBDT} kèm khoảng tin cậy $80\%$ (\mintinline{text}{mlLower80}, \mintinline{text}{mlUpper80}).                                                            & \mintinline{javascript}{forecastService}, \mintinline{javascript}{mlService}        & Q3               \\
+		FR-07       & So sánh hai chuỗi SMA và WMA+Mùa vụ sau chuẩn hóa \mintinline{javascript}{toFixed(2)}, trích xuất tối đa $8$ kỳ sai khác đầu tiên kèm độ lệch và thuật toán cao hơn.                                                                                             & \mintinline{javascript}{forecastService}, \textbf{ForecastTab}                      & Q4               \\
+		FR-08       & Phát luồng tồn kho lô $50$ bản ghi mỗi $2\text{ s}$ qua SSE/polling (\mintinline{text}{/api/inventory/stream}), phân loại $3$ mức và cộng dồn nguyên tử vào RAM (kèm \mintinline{javascript}{POST /api/inventory/reset}).                                        & \mintinline{javascript}{inventoryService}, \textbf{InventoryTab}                    & Q5               \\
+		FR-09       & Lọc danh sách Top $10$ cảnh báo tồn kho đã khử trùng lặp cặp \textit{(Category, Store)} (\mintinline{text}{GET /api/inventory/alerts}), ưu tiên \textit{Low Stock} trước \textit{Overstock}.                                                                     & \mintinline{javascript}{inventoryService}, \textbf{InventoryTab}                    & Q5               \\
+		FR-10       & Vận hành đường ống \textit{Medallion Lakehouse} (\textit{Bronze--Silver--Gold} trên DuckDB/Parquet), kiểm định Schema/DLQ, $8/8$ cổng chất lượng và kiểm toán PSI/KS drift (\mintinline{text}{pipelines/}).                                                      & \mintinline{text}{run_pipeline.py}, \mintinline{text}{dagster_defs}                 & Q1--Q6           \\
+		FR-11       & Huấn luyện ngoại tuyến \textit{Hybrid GBDT} + \textit{SMOTENC}/\textit{ADASYN} (\mintinline{text}{ml/}) và phục vụ suy luận tức thời qua \mintinline{text}{/api/ml/metrics}, \mintinline{text}{/api/ml/forecast}, \mintinline{text}{/api/ml/classify-inventory}. & \mintinline{javascript}{mlService}, \textbf{InventoryTab}                           & Q3, Q6           \\
+		FR-12       & Trang bị giao diện Sáng/Tối chống chớp khung hình, đồng bộ tham số \mintinline{text}{?tab=...} trên URL, bảng lệnh nhanh \texttt{Cmd+K}/\texttt{Ctrl+K} và khung xương tải dữ liệu (\textit{Skeleton}).                                                          & \mintinline{javascript}{AppContext}, \mintinline{javascript}{CommandPalette}        & Q1--Q6           \\
 		\bottomrule
 	\end{tabular}
-	\caption{Danh sách yêu cầu chức năng của hệ thống}
+	\caption{Danh sách $12$ yêu cầu chức năng của hệ thống}
 	\label{tab:functional-requirements}
 \end{table}
 
 \subsection{Yêu cầu phi chức năng}
 \label{sec:nfr}
-Bên cạnh các chức năng nghiệp vụ, hệ thống được thiết kế để đáp ứng bốn nhóm yêu cầu phi chức năng trọng yếu:
+Bên cạnh các chức năng nghiệp vụ, hệ thống được thiết kế để đáp ứng năm nhóm yêu cầu phi chức năng trọng yếu:
 \begin{itemize}[topsep=0pt, itemsep=1pt]
-	\item \textbf{Hiệu năng và quản lý tài nguyên:} Dữ liệu CSV được phân tích dạng luồng (\textit{streaming parser}) khi khởi động và lưu chỉ mục trên RAM để mọi truy vấn EDA, dự báo và mô phỏng luồng phản hồi tức thời. Cơ chế thăm dò (\textit{polling}) trên \texttt{usePolling} chạy chu kỳ $2.000\text{ ms}$, tự động tạm dừng khi thẻ trình duyệt bị ẩn (\texttt{document.hidden}), ngăn chồng chéo bất đồng bộ và áp dụng \texttt{AbortController} với ngưỡng quá thời gian $10.000\text{ ms}$ trên \texttt{apiClient}.
-	\item \textbf{Độ sẵn sàng và bảo vệ truy cập:} Lớp trung gian \texttt{readinessGuard} chặn mọi đường dẫn \texttt{/api/*} (ngoại trừ \texttt{/api/health}) với mã HTTP \texttt{503 SERVICE\_UNAVAILABLE} cho đến khi quá trình nạp hơn $410.000$ bản ghi hoàn tất, tránh tình trạng truy vấn trên dữ liệu rỗng.
-	\item \textbf{Tính mô-đun và khả năng bảo trì:} Phần máy chủ tuân thủ kiến trúc sạch $7$ tầng (\textit{Clean Architecture})~\cite{martin2017clean}: các thuật toán lõi trong \texttt{backend/algorithms/} là hàm thuần túy (\textit{pure functions}) không phụ thuộc vào tầng ngoài; tầng \texttt{services/} quản lý trạng thái và bộ nhớ đệm độc lập với \texttt{req}/\texttt{res}. Giao diện tách biệt ngữ cảnh \texttt{AppContext} (quản lý thẻ đang mở và trạng thái máy chủ) và \texttt{ToastContext} (quản lý thông báo).
-	\item \textbf{Khả năng đóng gói và tái lập:} Toàn bộ hệ thống được đóng gói bằng Docker đa container qua \texttt{docker-compose.yml}, gồm container \texttt{backend} (Node.js chạy cổng $3000$ với kiểm tra sức khỏe định kỳ mỗi $5$ giây) và container \texttt{frontend} (Nginx Alpine phục vụ cổng $80$, ánh xạ ra cổng $3001$, cấu hình nén Gzip và ủy quyền ngược \texttt{/api/} sang máy chủ backend).
+	\item \textbf{Hiệu năng khởi tạo và không nghẽn luồng sự kiện:} Ở chế độ \mintinline{text}{memory}, bộ phân tích luồng CSV chủ động nhường vòng lặp sự kiện (\mintinline{javascript}{setImmediate}) sau mỗi $30.000$ bản ghi giúp API \mintinline{text}{/api/health} phản hồi tức thì ($2{,}5\text{ s}$ nạp xong); ở chế độ \mintinline{javascript}{lakehouse}, \mintinline{javascript}{LakehouseRepository} nạp gói Gold tiền tổng hợp trong $16\text{ ms}$ (nhanh gấp $157\times$).
+	\item \textbf{Truyền dữ liệu thời gian thực bền vững (SSE \& Fallback):} Giao tiếp thời gian thực ưu tiên \mintinline{javascript}{EventSource} (Server-Sent Events kèm nhịp tim $15\text{ s}$ và cấu hình Nginx \mintinline{nginx}{proxy_buffering off}, \mintinline{nginx}{proxy_read_timeout 3600s}); khi gặp $\ge 2$ lỗi kết nối liên tiếp hoặc ẩn thẻ trình duyệt (\mintinline{javascript}{document.hidden}), hook tự động chuyển về HTTP polling $2.000\text{ ms}$ có \mintinline{javascript}{AbortController} ($10.000\text{ ms}$ timeout).
+	\item \textbf{Độ sẵn sàng và bảo vệ truy cập:} Lớp trung gian \mintinline{javascript}{readinessGuard} chặn mọi đường dẫn \mintinline{text}{/api/*} (ngoại trừ \mintinline{text}{/api/health}) với mã HTTP \mintinline{text}{503 SERVICE_UNAVAILABLE} trong lúc khởi tạo, bảo vệ API tránh đọc trạng thái chưa hoàn chỉnh.
+	\item \textbf{Tính mô-đun và khả năng bảo trì:} Phần máy chủ tách biệt theo \textit{Clean Architecture} và mẫu \textit{Repository} (\mintinline{text}{backend/repositories/}) giữa logic tính toán thuần (\mintinline{text}{algorithms/}), tầng dịch vụ (bao gồm \mintinline{javascript}{mlService}) và tầng HTTP. Giao diện tách ngữ cảnh \mintinline{javascript}{AppContext} (quản lý thẻ, trạng thái kết nối, Sáng/Tối và đồng bộ URL) khỏi \mintinline{javascript}{ToastContext}.
+	\item \textbf{Đóng gói đa container và khả năng mở rộng:} \mintinline{text}{docker-compose.yml} đóng gói container \mintinline{text}{backend} (Node.js cổng $3000$ kèm \mintinline{text}{HEALTHCHECK} $5\text{ s}$ và sẵn sàng \mintinline{text}{ml/artifacts/}, \mintinline{javascript}{data/lakehouse/}) cùng container \mintinline{text}{frontend} (Nginx Alpine cổng $80 \rightarrow 3001$); đồng thời cung cấp hồ sơ \mintinline{bash}{--profile pipeline} tích hợp Redpanda, Redis $7$ và ClickHouse khi cần thử nghiệm hạ tầng streaming.
 \end{itemize}
 
 \section{Chỉ số đánh giá (KPI)}
 \label{sec:kpi}
-Các chỉ số và ngưỡng quyết định của hệ thống được định nghĩa tập trung trong \texttt{constants.js} (thư mục \texttt{backend/config/}), \texttt{dataLoaderService.js} (thư mục \texttt{backend/services/}) và ba hàm thuật toán thuần túy tại \texttt{backend/algorithms/}. Nhờ đồng bộ hằng số giữa máy chủ và giao diện, số liệu hiển thị trên ba thẻ của ứng dụng khớp hoàn toàn với kết quả tính toán ở tầng dịch vụ.
+Các chỉ số và ngưỡng quyết định của hệ thống được định nghĩa tập trung trong \mintinline{text}{constants.js} (thư mục \mintinline{text}{backend/config/}), \mintinline{javascript}{dataLoaderService.js} (thư mục \mintinline{text}{backend/services/}) và ba hàm thuật toán thuần túy tại \mintinline{text}{backend/algorithms/}. Nhờ đồng bộ hằng số giữa máy chủ và giao diện, số liệu hiển thị trên ba thẻ của ứng dụng khớp hoàn toàn với kết quả tính toán ở tầng dịch vụ.
 
 \subsection{Quy ước Phạm vi tính toán}
 \label{sec:kpi-scope}
@@ -150,7 +155,7 @@ Các chỉ số và ngưỡng quyết định của hệ thống được địn
 Tùy theo đặc thù bài toán, các chỉ số được tính trên ba phạm vi sau:
 \begin{itemize}
 	\item \textbf{Toàn bộ lịch sử giao dịch:} Tính trên $125.751$ bản ghi bán hàng (từ \texttt{2025-06-01} đến \texttt{2026-04-24}) phục vụ bốn biểu đồ EDA và xây dựng chuỗi thời gian theo tháng cho từng cặp danh mục -- cửa hàng.
-	\item \textbf{Cửa sổ $30$ ngày gần nhất (\texttt{SALES\_LOOKBACK\_DAYS = 30}):} Lấy mốc ngày giao dịch lớn nhất trong tập dữ liệu (\texttt{2026-04-24}) lùi về $30$ ngày để tổng hợp sản lượng bán $30$ ngày (\texttt{prodSales30d}) của từng mã sản phẩm, làm căn cứ tính tốc độ tiêu thụ bình quân ngày.
+	\item \textbf{Cửa sổ $30$ ngày gần nhất (\mintinline{text}{SALES_LOOKBACK_DAYS = 30}):} Lấy mốc ngày giao dịch lớn nhất trong tập dữ liệu (\texttt{2026-04-24}) lùi về $30$ ngày để tổng hợp sản lượng bán $30$ ngày (\mintinline{text}{prodSales30d}) của từng mã sản phẩm, làm căn cứ tính tốc độ tiêu thụ bình quân ngày.
 	\item \textbf{Luồng tích lũy trên bộ nhớ (\textit{Cumulative Stream}):} Cộng dồn trạng thái phân loại qua các lô ngẫu nhiên ($20$ dòng/lần cho bảng bán hàng; $50$ bản ghi/lần cho biểu đồ tồn kho), tồn tại xuyên suốt vòng đời máy chủ cho đến khi người dùng đặt lại.
 \end{itemize}
 
@@ -162,24 +167,28 @@ Tùy theo đặc thù bài toán, các chỉ số được tính trên ba phạm
 	\footnotesize
 	\begin{tabular}{c p{2.5cm} p{8cm} p{3.3cm}}
 		\toprule
-		\textbf{Phân hệ} & \centering\textbf{Chỉ số / Thuật toán}   & \centering\textbf{Công thức và Ngưỡng xác định}                                                                                                                                          & \textbf{Hiển thị trên web}         \\
+		\textbf{Phân hệ} & \centering\textbf{Chỉ số / Thuật toán}             & \centering\textbf{Công thức và Ngưỡng xác định}                                                                                                                                                          & \textbf{Hiển thị trên web}                   \\
 		\midrule
-		EDA              & Doanh thu tháng                          & Tổng \texttt{Sales Amount} nhóm theo định dạng \texttt{YYYY-MM}, sắp xếp tăng dần theo thời gian                                                                                         & Xu hướng doanh thu (\$)            \\
-		EDA              & Top $10$ danh mục                        & Tổng \texttt{Qty Sold} theo \texttt{Product Category}, sắp xếp giảm dần và lấy $10$ danh mục dẫn đầu                                                                                     & Top $10$ danh mục bán chạy         \\
-		EDA              & Cơ cấu kênh bán hàng                     & Tổng \texttt{Sales Amount} theo \texttt{Sales Channel} và tỷ trọng phần trăm trên tổng doanh thu                                                                                         & Phân bổ doanh thu theo kênh        \\
-		EDA              & Tỷ lệ hoàn trả                           & Số giao dịch có \texttt{Is Return = 1} chia tổng giao dịch của mỗi \texttt{Product Division} ($\times 100\%$, làm tròn $2$ chữ số)                                                       & Tỷ lệ đổi trả (\%)                 \\
+		EDA              & Doanh thu tháng                                    & Tổng \mintinline{text}{Sales Amount} nhóm theo định dạng \mintinline{text}{YYYY-MM}, sắp xếp tăng dần theo thời gian                                                                                     & Xu hướng doanh thu (\$)                      \\
+		EDA              & Top $10$ danh mục                                  & Tổng \mintinline{text}{Qty Sold} theo \mintinline{text}{Product Category}, sắp xếp giảm dần và lấy $10$ danh mục dẫn đầu                                                                                 & Top $10$ danh mục bán chạy                   \\
+		EDA              & Cơ cấu kênh bán hàng                               & Tổng \mintinline{text}{Sales Amount} theo \mintinline{text}{Sales Channel} và tỷ trọng phần trăm trên tổng doanh thu                                                                                     & Phân bổ doanh thu theo kênh                  \\
+		EDA              & Tỷ lệ hoàn trả                                     & Số giao dịch có \mintinline{text}{Is Return = 1} chia tổng giao dịch của mỗi \mintinline{text}{Product Division} ($\times 100\%$, làm tròn $2$ chữ số)                                                   & Tỷ lệ đổi trả (\%)                           \\
 		\midrule
-		Dự báo           & Normal Forecast (SMA)                    & Trung bình cộng trượt của $N=4$ kỳ gần nhất: $\hat{y}_{t} = \dfrac{1}{4}\displaystyle\sum_{k=1}^{4} y_{t-k}$, làm tròn $2$ chữ số thập phân                                              & Đường xanh (\textit{Normal})       \\
-		Dự báo           & Super Forecast (WMA + Mùa vụ)            & WMA trọng số $w=[1, 2, 3, 4]$ trên $4$ kỳ gần nhất, nhân hệ số mùa vụ $SF_m = \overline{y}_m / \overline{y}$ của tháng dự báo $m$, làm tròn $2$ chữ số                                   & Đường cam (\textit{Super})         \\
-		Dự báo           & Chênh lệch đối soát                      & $\Delta = |\hat{y}_{\text{super}} - \hat{y}_{\text{normal}}|$ và $\%\Delta = \dfrac{\Delta}{|\hat{y}_{\text{normal}}|} \times 100\%$; lọc tối đa $8$ kỳ có \texttt{toFixed(2)} khác nhau & Bảng đối soát $8$ kỳ               \\
+		Dự báo           & Normal Forecast (SMA)                              & Trung bình cộng trượt của $N=4$ kỳ gần nhất: $\hat{y}_{t} = \dfrac{1}{4}\displaystyle\sum_{k=1}^{4} y_{t-k}$, làm tròn $2$ chữ số thập phân                                                              & Đường xanh (\textit{Normal})                 \\
+		Dự báo           & Super Forecast (WMA + Mùa vụ)                      & WMA trọng số $w=[1, 2, 3, 4]$ trên $4$ kỳ gần nhất, nhân hệ số mùa vụ $SF_m = \overline{y}_m / \overline{y}$ của tháng dự báo $m$, làm tròn $2$ chữ số                                                   & Đường cam (\textit{Super})                   \\
+		Dự báo           & Chênh lệch đối soát                                & $\Delta = |\hat{y}_{\text{super}} - \hat{y}_{\text{normal}}|$ và $\%\Delta = \dfrac{\Delta}{|\hat{y}_{\text{normal}}|} \times 100\%$; lọc tối đa $8$ kỳ có \mintinline{javascript}{toFixed(2)} khác nhau & Bảng đối soát $8$ kỳ                         \\
 		\midrule
-		Tồn kho          & Tốc độ bán ngày (\texttt{avgDailySales}) & $\text{sales30d} / 30$, với \texttt{sales30d} là tổng \texttt{Qty Sold} của sản phẩm trong $30$ ngày gần nhất                                                                            & Tham số nội suy ngưỡng             \\
-		Tồn kho          & \textbf{Healthy}                         & $\text{avgDailySales} \le 0$ hoặc $\text{qtyOnHand} \ge 14 \times \text{avgDailySales}$ (và $< 60 \times \text{avgDailySales}$)                                                          & Thẻ xanh lá (\texttt{Cover > 14d}) \\
-		Tồn kho          & \textbf{Low Stock}                       & $\text{avgDailySales} > 0$ và $\text{qtyOnHand} < 14 \times \text{avgDailySales}$                                                                                                        & Thẻ cam (\texttt{Cover < 14d})     \\
-		Tồn kho          & \textbf{Overstock}                       & $\text{avgDailySales} > 0$ và $\text{qtyOnHand} \ge 60 \times \text{avgDailySales}$                                                                                                      & Thẻ đỏ (\texttt{Cover > 60d})      \\
+		Tồn kho          & Tốc độ bán ngày (\mintinline{text}{avgDailySales}) & $\text{sales30d} / 30$, với \mintinline{text}{sales30d} là tổng \mintinline{text}{Qty Sold} của sản phẩm trong $30$ ngày gần nhất                                                                        & Tham số nội suy ngưỡng                       \\
+		Tồn kho          & \textbf{Healthy}                                   & $\text{avgDailySales} \le 0$ hoặc $\text{qtyOnHand} \ge 14 \times \text{avgDailySales}$ (và $< 60 \times \text{avgDailySales}$)                                                                          & Thẻ xanh lá (\mintinline{text}{Cover > 14d}) \\
+		Tồn kho          & \textbf{Low Stock}                                 & $\text{avgDailySales} > 0$ và $\text{qtyOnHand} < 14 \times \text{avgDailySales}$                                                                                                                        & Thẻ cam (\mintinline{text}{Cover < 14d})     \\
+		Tồn kho          & \textbf{Overstock}                                 & $\text{avgDailySales} > 0$ và $\text{qtyOnHand} \ge 60 \times \text{avgDailySales}$                                                                                                                      & Thẻ đỏ (\mintinline{text}{Cover > 60d})      \\
+		\midrule
+		Học máy          & Hybrid GBDT + $80\%$ CI                            & Kết hợp phân vị $q=0{,}42$ (\textit{HistGBDT}) với \textit{Ridge} \& hệ số mùa vụ; dải tin cậy biên phân vị $10\%$--$90\%$ hiệu chuẩn trên tập OOS                                                       & Đường tím \& Dải $80\%$ CI                   \\
+		Học máy          & Rủi ro ML (\textit{SMOTENC})                       & Xác suất $P(\text{Healthy/Low/Over})$ từ hàm logistic hiệu chuẩn kèm cờ \mintinline{text}{isDeadStockCandidate} khi $\text{avgDailySales} \le 0$                                                         & Bộ mô phỏng rủi ro (\textbf{Tab 3})          \\
+		Chất lượng       & Kiểm soát trôi dạt (\textit{Drift})                & Chỉ số ổn định quần thể ($\text{PSI} < 0{,}2$) và kiểm định hai mẫu Kolmogorov--Smirnov (\textit{KS}) giữa tập tham chiếu ($\le$ \texttt{2026-01}) và tập mới ($\ge$ \texttt{2026-02})                   & Báo cáo Gold Lakehouse                       \\
 		\bottomrule
 	\end{tabular}
-	\caption{Định nghĩa các chỉ số và ngưỡng đánh giá trên ba phân hệ}
+	\caption{Định nghĩa các chỉ số và ngưỡng đánh giá trên ba phân hệ và mô hình ML}
 	\label{tab:kpi-definitions}
 \end{table}
 
@@ -187,31 +196,31 @@ Trên dữ liệu lịch sử thực tế ($125.751$ giao dịch bán hàng), h�
 
 \section{Tổng quan dữ liệu}
 \label{sec:data-overview}
-Hệ thống sử dụng hai tập tin CSV từ bộ dữ liệu \textit{Retail Transactions and Stocks Data}~\cite{smith2026retail} đặt trong thư mục \texttt{data/}, gồm tổng cộng $410.506$ bản ghi. Bảng~\ref{tab:data-overview} tóm tắt quy mô, khoảng thời gian và các trường dữ liệu chính được hệ thống trích xuất.
+Hệ thống sử dụng hai tập tin CSV từ bộ dữ liệu \textit{Retail Transactions and Stocks Data}~\cite{smith2026retail} đặt trong thư mục \mintinline{text}{data/}, gồm tổng cộng $410.506$ bản ghi. Bảng~\ref{tab:data-overview} tóm tắt quy mô, khoảng thời gian và các trường dữ liệu chính được hệ thống trích xuất.
 
 \begin{table}[H]
 	\centering
 	\footnotesize
 	\begin{tabular}{c c c p{1.6cm} p{5.8cm}}
 		\toprule
-		\textbf{Tập tin nguồn}                  & \textbf{Số dòng} & \textbf{Số cột} & \centering\textbf{Thời gian}                           & \textbf{Trường dữ liệu sử dụng chính}                                                                                                                                                                      \\
+		\textbf{Tập tin nguồn}                         & \textbf{Số dòng} & \textbf{Số cột} & \centering\textbf{Thời gian}                                     & \textbf{Trường dữ liệu sử dụng chính}                                                                                                                                                                                                                                                                \\
 		\midrule
-		\texttt{retail\_sales\_ml\_apl.csv}     & $125.751$        & $17$            & \texttt{2025/06/01} $\rightarrow$ \texttt{26/04/24}    & \texttt{Transaction Date}, \texttt{Is Return}, \texttt{Product No}, \texttt{Product Division}, \texttt{Product Category}, \texttt{Store}, \texttt{Sales Channel}, \texttt{Qty Sold}, \texttt{Sales Amount} \\
+		\mintinline{text}{retail_sales_ml_apl.csv}     & $125.751$        & $17$            & \texttt{2025/06/01} $\rightarrow$ \texttt{26/04/24}              & \mintinline{text}{Transaction Date}, \mintinline{text}{Is Return}, \mintinline{text}{Product No}, \mintinline{text}{Product Division}, \mintinline{text}{Product Category}, \mintinline{text}{Store}, \mintinline{text}{Sales Channel}, \mintinline{text}{Qty Sold}, \mintinline{text}{Sales Amount} \\
 		\midrule
-		\texttt{retail\_inventory\_ml\_apl.csv} & $284.755$        & $18$            & \texttt{2025/06/01} $\rightarrow$  \texttt{9999/12/31} & \texttt{Start Date}, \texttt{End Date}, \texttt{Stock Status}, \texttt{Product No}, \texttt{Product Category}, \texttt{Store}, \texttt{Store Type}, \texttt{Qty on hand}                                   \\
+		\mintinline{text}{retail_inventory_ml_apl.csv} & $284.755$        & $18$            & \texttt{2025/06/01} $\rightarrow$  \mintinline{text}{9999/12/31} & \mintinline{text}{Start Date}, \mintinline{text}{End Date}, \mintinline{text}{Stock Status}, \mintinline{text}{Product No}, \mintinline{text}{Product Category}, \mintinline{text}{Store}, \mintinline{text}{Store Type}, \mintinline{text}{Qty on hand}                                             \\
 		\bottomrule
 	\end{tabular}
 	\caption{Tổng quan hai tập dữ liệu nguồn trong hệ thống}
 	\label{tab:data-overview}
 \end{table}
 
-Phân tích cấu trúc hai tập tin nguồn cho thấy năm đặc điểm dữ liệu ảnh hưởng trực tiếp tới thiết kế xử lý của \texttt{dataLoaderService}:
+Phân tích cấu trúc hai tập tin nguồn cho thấy năm đặc điểm dữ liệu ảnh hưởng trực tiếp tới thiết kế xử lý của \mintinline{javascript}{dataLoaderService}:
 \begin{itemize}[topsep=0pt, itemsep=1pt]
-	\item \textbf{Phân cấp sản phẩm và cửa hàng đồng nhất:} Cả hai tập tin đều phủ trên $40$ cửa hàng (\texttt{STR-1006} trở đi) và $27$ danh mục sản phẩm thuộc $3$ nhóm hàng (\textit{Scholar Footwear}, \textit{Femme Footwear}, \textit{Junior Apparel}), liên kết thông qua mã sản phẩm \texttt{Product No} ($2.326$ mã trong bảng tồn kho) và mã cửa hàng \texttt{Store}.
+	\item \textbf{Phân cấp sản phẩm và cửa hàng đồng nhất:} Cả hai tập tin đều phủ trên $40$ cửa hàng (\texttt{STR-1006} trở đi) và $27$ danh mục sản phẩm thuộc $3$ nhóm hàng (\textit{Scholar Footwear}, \textit{Femme Footwear}, \textit{Junior Apparel}), liên kết thông qua mã sản phẩm \mintinline{text}{Product No} ($2.326$ mã trong bảng tồn kho) và mã cửa hàng \mintinline{text}{Store}.
 	\item \textbf{Dữ liệu giao dịch một kênh và cửa hàng một loại:} Toàn bộ bản ghi bán hàng thuộc một kênh phân phối (\textit{Channel Alpha}) và toàn bộ bản ghi tồn kho thuộc loại hình \textit{Retail Storefront}; điều này cho phép kiểm chứng cấu trúc biểu đồ phân bổ mà không làm phân mảnh tập mẫu.
-	\item \textbf{Trạng thái giá và mốc kết thúc hiệu lực:} Tập tồn kho phân biệt $5$ trạng thái định giá (\textit{Full Price}, \textit{Markdown Tier 1}, \textit{Markdown Tier 2}, \textit{Clearance}, \textit{Promo}) và sử dụng mốc giả \texttt{End Date = 9999-12-31} cho các bản ghi tồn kho còn hiệu lực.
-	\item \textbf{Đặc thù dữ liệu hoàn trả:} Cột \texttt{Reason of Return} để trống ở các giao dịch không hoàn trả (\texttt{Is Return = 0}) và chỉ phát sinh giá trị khi \texttt{Is Return = 1} ($7.491$ giao dịch); do đó chỉ số hoàn trả tính theo tỷ lệ nhị phân trên \texttt{Is Return}.
-	\item \textbf{Chuẩn hóa định dạng số và chuỗi CSV:} Các trường số thực như \texttt{Qty Sold}, \texttt{Sales Amount} và \texttt{Cogs} lưu dưới dạng chuỗi có $4$ chữ số thập phân trong CSV (ví dụ \texttt{115.0000}), đòi hỏi tầng nạp ép kiểu số an toàn và sử dụng bộ phân tách CSV chuẩn RFC 4180 (\texttt{csv-parser} kèm dự phòng \texttt{parseCSVLine}) để xử lý trường văn bản có dấu ngoặc kép.
+	\item \textbf{Trạng thái giá và mốc kết thúc hiệu lực:} Tập tồn kho phân biệt $5$ trạng thái định giá (\textit{Full Price}, \textit{Markdown Tier 1}, \textit{Markdown Tier 2}, \textit{Clearance}, \textit{Promo}) và sử dụng mốc giả \mintinline{text}{End Date = 9999-12-31} cho các bản ghi tồn kho còn hiệu lực.
+	\item \textbf{Đặc thù dữ liệu hoàn trả:} Cột \mintinline{text}{Reason of Return} bị bỏ trống ở toàn bộ $125.751$ giao dịch ($100\%$), kể cả trên $7.491$ giao dịch có \mintinline{text}{Is Return = 1}; do đó chỉ số hoàn trả được tính hoàn toàn theo tỷ lệ nhị phân trên \mintinline{text}{Is Return}.
+	\item \textbf{Chuẩn hóa định dạng số và chuỗi CSV:} Các trường số thực như \mintinline{text}{Qty Sold}, \mintinline{text}{Sales Amount} và \mintinline{text}{Cogs} lưu dưới dạng chuỗi có $4$ chữ số thập phân trong CSV (ví dụ \texttt{115.0000}), đòi hỏi tầng nạp ép kiểu số an toàn và sử dụng bộ phân tách CSV chuẩn RFC 4180 (\mintinline{text}{csv-parser} kèm dự phòng \mintinline{javascript}{parseCSVLine}) để xử lý trường văn bản có dấu ngoặc kép.
 \end{itemize}
 
 \section{Phạm vi và Giả định}
@@ -220,26 +229,25 @@ Phân tích cấu trúc hai tập tin nguồn cho thấy năm đặc điểm d�
 \subsection*{Trong phạm vi}
 \label{sec:in-scope}
 \begin{itemize}[topsep=0pt, itemsep=1pt]
-	\item \textbf{Nạp và lập chỉ mục trên bộ nhớ:} Tự động đọc toàn bộ $410.506$ bản ghi CSV từ đĩa vào RAM lúc khởi động máy chủ, tiền tính toán các tập dữ liệu EDA, bảng tra cứu doanh số $30$ ngày và top $10$ cảnh báo tồn kho.
-	\item \textbf{Mô phỏng luồng thời gian thực:} Cài đặt cơ chế polling mỗi $2$ giây cho luồng bán hàng ($20$ dòng/lần) và luồng phân loại tồn kho ($50$ bản ghi/lần) thông qua REST API chuẩn JSON.
-	\item \textbf{Dự báo nhu cầu và phân loại tồn kho:} Cài đặt hai thuật toán dự báo (SMA và WMA + mùa vụ) và thuật toán phân loại tồn kho $3$ mức làm các hàm thuần túy, kiểm thử độc lập qua bộ kiểm thử tự động \texttt{test\_endpoints.js}.
-	\item \textbf{Giao diện SPA và đóng gói Docker:} Xây dựng đầy đủ giao diện $3$ thẻ trên React 18 và cấu hình triển khai đa container với Nginx.
+	\item \textbf{Xử lý hai chế độ (\mintinline{text}{memory} và \mintinline{javascript}{lakehouse}):} Tự động nạp $410.506$ bản ghi CSV vào RAM hoặc đọc gói Gold từ đường ống \textit{Medallion Lakehouse} (\textit{Bronze--Silver--Gold} DuckDB/Parquet), kèm $8/8$ cổng chất lượng và kiểm định trôi dạt PSI/KS.
+	\item \textbf{Luồng SSE, cắt lớp OLAP Cube và dự báo ML:} Cung cấp luồng thời gian thực qua SSE (\mintinline{text}{/events}) có dự phòng polling $2\text{ s}$, cắt lớp $7.517$ ô OLAP Cube trên thẻ EDA, đối chiếu SMA, WMA+mùa vụ và \textit{Hybrid GBDT} (+ khoảng tin cậy $80\%$), cùng mô phỏng rủi ro \textit{SMOTENC}.
+	\item \textbf{Kiểm thử đa tầng và đóng gói Docker:} Vận hành bộ kiểm thử đơn vị/E2E ($129$ bài), chịu tải $7$+4B pha (\mintinline{javascript}{stress_test.js}), đối đẳng Lakehouse (\mintinline{text}{shadow_parity.js}), kiểm thử Python (\mintinline{bash}{pytest}) và đóng gói React 18 + Apache ECharts 6 qua Docker Compose/Nginx.
 \end{itemize}
 
 \subsection*{Ngoài phạm vi}
 \label{sec:out-of-scope}
 \begin{itemize}[topsep=0pt, itemsep=1pt]
-	\item \textbf{Hệ quản trị cơ sở dữ liệu phân tán và hàng đợi thông điệp:} Hệ thống không sử dụng Apache Kafka, Spark hay cơ sở dữ liệu ngoài; toàn bộ trạng thái lưu tạm trên RAM nhằm tối giản triển khai trên một nút đơn lẻ.
-	\item \textbf{Ghi ngược xuống dữ liệu nguồn và đặt hàng tự động:} Hệ thống chỉ hỗ trợ đọc, phân tích và cảnh báo; không tự động tạo đơn đặt hàng tới nhà cung cấp hay cập nhật sửa đổi tập tin CSV gốc.
+	\item \textbf{Tiến trình tiêu thụ bất đồng bộ trực tuyến từ Message Broker:} Dù tệp cấu hình \mintinline{text}{docker-compose.yml} hỗ trợ hồ sơ \mintinline{bash}{--profile pipeline} khởi chạy Redpanda, Redis và ClickHouse cùng biến môi trường kết nối, máy chủ Node.js hiện tại đọc dữ liệu từ CSV trên RAM hoặc tệp Gold Lakehouse chứ chưa duy trì vòng lặp consumer/sink ghi-đọc trực tiếp trên dây mạng.
+	\item \textbf{Ghi ngược xuống dữ liệu nguồn và đặt hàng tự động:} Hệ thống chỉ hỗ trợ đọc, phân tích, dự báo và cảnh báo; không tự động tạo đơn đặt hàng tới nhà cung cấp hay cập nhật sửa đổi tập tin CSV gốc.
 	\item \textbf{Xác thực và phân quyền người dùng:} Phiên bản hiện tại phục vụ trình diễn phân tích tập trung nên chưa tích hợp đăng nhập hoặc phân quyền theo vai trò cửa hàng.
 \end{itemize}
 
 \subsection*{Giả định}
 \label{sec:assumptions}
 \begin{enumerate}[label=\textit{\arabic*},topsep=0pt, itemsep=1pt]
-	\item \textbf{Cửa sổ doanh số đại diện:} Tốc độ tiêu thụ bình quân ngày của mỗi sản phẩm được ước lượng bằng tổng \texttt{Qty Sold} trong $30$ ngày gần nhất tính từ ngày giao dịch mới nhất trong tập dữ liệu (\texttt{2026-04-24}) chia cho $30$.
-	\item \textbf{Chu kỳ dự báo theo tháng:} Dữ liệu đầu vào của thuật toán dự báo được tổng hợp theo từng tháng (\texttt{YYYY-MM}) và điền giá trị $0$ cho các tháng khuyết trên toàn bộ $11$ tháng lịch sử; cặp không có lịch sử giao dịch sẽ dùng chuỗi $0$ đủ $11$ tháng.
-	\item \textbf{Mặc định với sản phẩm chưa có lịch sử bán:} Nếu một mã sản phẩm trong kho không phát sinh doanh số trong $30$ ngày gần nhất ($\text{avgDailySales} \le 0$), hàm \texttt{classifyInventory} mặc định phân loại là \textbf{Healthy} để tránh báo động giả thiếu hàng.
+	\item \textbf{Cửa sổ doanh số đại diện:} Tốc độ tiêu thụ bình quân ngày của mỗi sản phẩm được ước lượng bằng tổng \mintinline{text}{Qty Sold} trong $30$ ngày gần nhất tính từ ngày giao dịch mới nhất trong tập dữ liệu (\texttt{2026-04-24}) chia cho $30$.
+	\item \textbf{Chu kỳ dự báo theo tháng:} Dữ liệu đầu vào của thuật toán dự báo được tổng hợp theo từng tháng (\mintinline{text}{YYYY-MM}) và điền giá trị $0$ cho các tháng khuyết trên toàn bộ $11$ tháng lịch sử; cặp không có lịch sử giao dịch sẽ dùng chuỗi $0$ đủ $11$ tháng.
+	\item \textbf{Mặc định với sản phẩm chưa có lịch sử bán:} Nếu một mã sản phẩm trong kho không phát sinh doanh số trong $30$ ngày gần nhất ($\text{avgDailySales} \le 0$), hàm \mintinline{javascript}{classifyInventory} mặc định phân loại là \textbf{Healthy} để tránh báo động giả thiếu hàng.
 	\item \textbf{Thứ tự ưu tiên cảnh báo:} Bảng Top $10$ cảnh báo tồn kho khử trùng lặp theo cặp \textit{(Category, Store)}, giữ tối đa $3$ cảnh báo \textit{Overstock} (nếu có) và sắp xếp toàn bộ \textit{Low Stock} lên trước \textit{Overstock}.
-	\item \textbf{Trạng thái tích lũy trên máy chủ:} Bộ đếm \texttt{cumulativeState} trên \texttt{InventoryService} giữ nguyên trong RAM kể cả khi tải lại trang trình duyệt, chỉ trở về $0$ khi máy chủ khởi động lại hoặc nhận yêu cầu \texttt{POST /api/inventory/reset}.
+	\item \textbf{Trạng thái tích lũy trên máy chủ:} Bộ đếm \mintinline{javascript}{cumulativeState} trên \mintinline{javascript}{InventoryService} giữ nguyên trong RAM kể cả khi tải lại trang trình duyệt, chỉ trở về $0$ khi máy chủ khởi động lại hoặc nhận yêu cầu \mintinline{javascript}{POST /api/inventory/reset}.
 \end{enumerate}

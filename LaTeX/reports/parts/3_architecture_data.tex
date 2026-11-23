@@ -1,7 +1,7 @@
-\part{Kiến trúc hệ thống và Đường ống dữ liệu trên RAM}
+\part{Kiến trúc hệ thống, Lakehouse và Đường ống dữ liệu}
 \label{part:ch3}
 
-Từ các đặc trưng dữ liệu đã phân tích ở Chương~\ref{part:ch2}, hệ thống \texttt{bigdata\_inventory} được thiết kế theo hướng xử lý hoàn toàn trên bộ nhớ chính (\textit{in-memory analytics}) kết hợp kiến trúc sạch (\textit{Clean Architecture})~\cite{martin2017clean}. Mục~\ref{sec:ch3-arch} trình bày phân tầng Backend $7$ lớp và Frontend SPA tách ngữ cảnh. Mục~\ref{sec:ch3-pipeline} mô tả đường ống nạp luồng CSV lúc khởi động cùng $6$ cấu trúc chỉ mục trên RAM. Mục~\ref{sec:ch3-guard} phân tích cơ chế bảo vệ sẵn sàng (\texttt{readinessGuard}) và kiểm soát chất lượng luồng nhập.
+Từ các đặc trưng dữ liệu đã phân tích ở Chương~\ref{part:ch2}, hệ thống \mintinline{text}{bigdata_inventory} được thiết kế theo mô hình kiến trúc sạch (\textit{Clean Architecture})~\cite{martin2017clean} kết hợp mẫu thiết kế \textit{Repository} hỗ trợ hai chế độ nạp dữ liệu (\mintinline{text}{memory} trên RAM và \mintinline{javascript}{lakehouse} từ gói Gold tiền tổng hợp). Mục~\ref{sec:ch3-arch} trình bày phân tầng Backend (thêm tầng \mintinline{text}{repositories/} và dịch vụ \mintinline{javascript}{mlService}) cùng Frontend React 18 + Apache ECharts 6 SPA. Mục~\ref{sec:ch3-pipeline} mô tả đường ống nạp luồng CSV không nghẽn vòng lặp sự kiện cùng $8$ cấu trúc chỉ mục trên RAM. Mục~\ref{sec:ch3-guard} phân tích cơ chế bảo vệ sẵn sàng (\mintinline{javascript}{readinessGuard}), còn Mục~\ref{sec:ch3-medallion} trình bày đường ống \textit{Medallion Lakehouse} (\textit{Bronze--Silver--Gold} DuckDB), $8/8$ cổng kiểm soát chất lượng và điều phối Dagster.
 
 \medskip
 
@@ -14,9 +14,9 @@ Từ các đặc trưng dữ liệu đã phân tích ở Chương~\ref{part:ch2}
 	\label{fig:ishikawa_fullstack}
 \end{figure}
 
-\section{Kiến trúc sạch 7 tầng và Thiết kế tách lớp}
+\section{Kiến trúc sạch, Mẫu Repository và Thiết kế tách lớp}
 \label{sec:ch3-arch}
-Hình~\ref{fig:system_architecture} minh họa kiến trúc tổng thể giữa trình duyệt React 18 SPA, lớp ủy quyền ngược Nginx và máy chủ Node.js Express. Thay vì truy vấn đĩa lặp lại hoặc triển khai hệ quản trị cơ sở dữ liệu cồng kềnh cho $410.506$ bản ghi, toàn bộ dữ liệu nguồn được nạp một lần vào RAM giúp độ trễ phục vụ API đạt mức dưới mili-giây.
+Hình~\ref{fig:system_architecture} minh họa kiến trúc tổng thể giữa trình duyệt React 18 SPA (tích hợp Apache ECharts 6 và \texttt{Cmd+K}), lớp ủy quyền ngược Nginx hỗ trợ SSE và máy chủ Node.js Express. Thay vì truy vấn đĩa lặp lại ở mỗi yêu cầu, hệ thống hỗ trợ chuyển đổi linh hoạt qua biến môi trường \mintinline{text}{DATA_BACKEND} (\mintinline{text}{memory}, \mintinline{javascript}{lakehouse}, hoặc \mintinline{text}{shadow}): nạp luồng CSV vào RAM trong khoảng $2{,}5\text{ s}$ hoặc đọc gói Gold tiền tổng hợp \mintinline{text}{serving_bundle.json} chỉ trong $16\text{ ms}$.
 
 \begin{figure}[H]
 	\centering
@@ -25,31 +25,32 @@ Hình~\ref{fig:system_architecture} minh họa kiến trúc tổng thể giữa 
 	\label{fig:system_architecture}
 \end{figure}
 
-Tại phía máy chủ (\texttt{backend/}), mã nguồn tuân thủ nguyên tắc phụ thuộc hướng tâm của kiến trúc sạch qua $7$ tầng tách biệt:
+Tại phía máy chủ (\mintinline{text}{backend/}), mã nguồn tuân thủ nguyên tắc phụ thuộc hướng tâm của kiến trúc sạch qua $8$ thành phần phân tầng tách biệt:
 \begin{enumerate}[label=\textit{\arabic*},topsep=0pt, itemsep=1pt]
-	\item \textbf{Tầng cấu hình (\texttt{config/}):} Tập trung hằng số nghiệp vụ trong \texttt{constants.js} (cửa sổ $N=4$, trọng số $[1, 2, 3, 4]$, ngưỡng $14$/$60$ ngày, giới hạn LRU cache $1.500$, độ dài chuỗi tối đa $200$ ký tự, chu kỳ $2.000\text{ ms}$) và biến môi trường trong \texttt{env.js}.
-	\item \textbf{Tầng thuật toán lõi (\texttt{algorithms/}):} Chứa ba mô-đun \texttt{forecast.js}, \texttt{forecastsuper.js} và \texttt{classify.js}. Mọi hàm đều là hàm thuần túy (\textit{pure functions}), \textbf{không} chứa lệnh \texttt{require} từ tầng khác; các mô-đun gốc \texttt{algorithms/*} và \texttt{backend/dataLoader.js} đóng vai trò facade ủy quyền về cùng một nguồn chân lý duy nhất.
-	\item \textbf{Tầng tiện ích (\texttt{utils/}):} Cung cấp bộ phân tách \texttt{parseCSVLine}, hàm làm tròn \texttt{roundTo}, tính phần trăm lệch \texttt{calcDiffPercent} và trình bao bắt lỗi bất đồng bộ \texttt{asyncWrapper}.
-	\item \textbf{Tầng dịch vụ (\texttt{services/}):} Gồm \texttt{dataLoaderService}, \texttt{salesStreamService}, \texttt{edaService}, \texttt{forecastService} và \texttt{inventoryService}. Tầng này tự quản lý chỉ mục, bộ nhớ đệm và trạng thái tích lũy, tách biệt hoàn toàn với đối tượng HTTP \texttt{req}/\texttt{res}.
-	\item \textbf{Tầng điều khiển (\texttt{controllers/}):} Tiếp nhận yêu cầu, kiểm tra hợp lệ đầu vào (kiểu đối tượng thuần, độ dài $\le 200$ ký tự, số kỳ $4 \le \text{periods} \le 24$), gọi tầng dịch vụ và đóng gói JSON trả về.
-	\item \textbf{Tầng định tuyến (\texttt{routes/}):} Ánh xạ đường dẫn REST API vào controller tương ứng, không chứa logic nghiệp vụ.
-	\item \textbf{Tầng trung gian (\texttt{middleware/}):} Gồm \texttt{cors.js}, \texttt{logger.js}, \texttt{readinessGuard.js} và \texttt{errorHandler.js} (giới hạn thân JSON $100\text{ KB}$, bắt lỗi cú pháp \texttt{400} và quá tải \texttt{413}), lắp ráp theo thứ tự nghiêm ngặt trong \texttt{app.js}.
+	\item \textbf{Tầng cấu hình (\mintinline{text}{config/}):} Tập trung hằng số nghiệp vụ trong \mintinline{text}{constants.js} (cửa sổ $N=4$, trọng số $[1, 2, 3, 4]$, ngưỡng $14$/$60$ ngày, LRU cache $1.500$, độ dài chuỗi $\le 200$, chu kỳ $2.000\text{ ms}$) và biến môi trường \mintinline{text}{DATA_BACKEND}, \mintinline{text}{LAKEHOUSE_DIR}, \mintinline{text}{REDIS_URL}, \mintinline{text}{CLICKHOUSE_URL} trong \mintinline{text}{env.js}.
+	\item \textbf{Tầng thuật toán lõi (\mintinline{text}{algorithms/}):} Chứa ba mô-đun \mintinline{text}{forecast.js}, \mintinline{text}{forecastsuper.js} và \mintinline{text}{classify.js}. Mọi hàm đều là hàm thuần túy (\textit{pure functions}), \textbf{không} chứa lệnh \mintinline{javascript}{require} từ tầng khác; các mô-đun gốc \mintinline{text}{algorithms/*} và \mintinline{text}{backend/dataLoader.js} đóng vai trò facade tương thích ngược.
+	\item \textbf{Tầng tiện ích (\mintinline{text}{utils/}):} Cung cấp bộ phân tách \mintinline{javascript}{parseCSVLine}, hàm làm tròn \mintinline{javascript}{roundTo}, \mintinline{javascript}{calcDiffPercent} và trình bao bắt lỗi bất đồng bộ \mintinline{javascript}{asyncWrapper}.
+	\item \textbf{Tầng kho dữ liệu (\mintinline{text}{repositories/}):} Gồm \mintinline{javascript}{dataRepository.js} (factory điều phối \mintinline{text}{memory}/\mintinline{javascript}{lakehouse}/\mintinline{text}{shadow}) và \mintinline{javascript}{lakehouseRepository.js} nạp trực tiếp các bảng tổng hợp từ \mintinline{text}{gold/serving_bundle.json} (với \mintinline{text}{7.517} ô khối lập phương EDA và chuỗi lịch sử $1.080$ cặp) đạt chuẩn giao diện truy vấn đồng nhất.
+	\item \textbf{Tầng dịch vụ (\mintinline{text}{services/}):} Gồm $6$ dịch vụ độc lập \mintinline{javascript}{req}/\mintinline{javascript}{res}: \mintinline{javascript}{dataLoaderService}, \mintinline{javascript}{salesStreamService}, \mintinline{javascript}{edaService} (OLAP), \mintinline{javascript}{forecastService}, \mintinline{javascript}{inventoryService} và \mintinline{javascript}{mlService} (nạp \texttt{ml\_\allowbreak{}predictions\_\allowbreak{}cache.json} và mô phỏng rủi ro \textit{SMOTENC}).
+	\item \textbf{Tầng điều khiển (\mintinline{text}{controllers/}):} Gồm $6$ controller (\mintinline{text}{health}, \mintinline{text}{stream}, \mintinline{text}{eda}, \mintinline{text}{forecast}, \mintinline{text}{inventory}, \mintinline{text}{ml}) tiếp nhận yêu cầu, kiểm tra hợp lệ đầu vào (kiểu JSON thuần, $\le 200$ ký tự, $4 \le \text{periods} \le 24$, kiểm biên tham số mô phỏng ML) và đóng gói phản hồi.
+	\item \textbf{Tầng định tuyến (\mintinline{text}{routes/}):} Ánh xạ $18$ đường dẫn REST/SSE chuẩn dưới \mintinline{text}{/api} (cùng $2$ bí danh \mintinline{text}{/api/categories}, \mintinline{javascript}{/api/stores}).
+	\item \textbf{Tầng trung gian (\mintinline{text}{middleware/}):} Gồm \mintinline{text}{cors.js}, \mintinline{text}{logger.js}, \mintinline{javascript}{readinessGuard.js} và \mintinline{text}{errorHandler.js} (giới hạn thân JSON $100\text{ KB}$, bắt lỗi cú pháp \texttt{400} và quá tải \texttt{413}), lắp ráp nghiêm ngặt trong \mintinline{text}{app.js}.
 \end{enumerate}
 
-\indent Ở phía giao diện (\texttt{frontend/src/}), ứng dụng React 18 SPA áp dụng cấu trúc mô-đun hóa chống ``God Context'': \texttt{AppContext.jsx} chỉ quản lý thẻ đang mở (\texttt{activeTab}) và trạng thái kết nối máy chủ (\texttt{backendStatus} kiểm tra mỗi $5\text{ s}$ qua \texttt{/api/health}), còn \texttt{ToastContext.jsx} quản lý thông báo độc lập. Các hook (\texttt{useEdaData}, \texttt{useForecast}, \texttt{useInventoryStream}, \texttt{useSalesStream}) duy trì bộ nhớ đệm cấp mô-đun để giữ nguyên trạng thái khi chuyển thẻ, kèm cơ chế hủy \texttt{AbortController}, chống tranh chấp thứ tự phản hồi (\textit{race guard}) và tự động tải lại ngay khi \texttt{backendStatus} chuyển từ \texttt{loading} (\texttt{503}) sang \texttt{ready}. Tệp \texttt{apiConfig.js} tự động nhận diện URL gốc theo môi trường chạy: trả về \texttt{http://localhost:3000} khi chạy phát triển trên các cổng \texttt{3001}, \texttt{5173}, \texttt{8080}, \texttt{5500} hoặc \texttt{file://}, và trả về chuỗi rỗng \texttt{""} để dùng đường dẫn tương đối \texttt{/api} khi chạy sau proxy Nginx trong Docker.
+\indent Ở phía giao diện (\mintinline{text}{frontend/src/}), ứng dụng React 18 SPA áp dụng cấu trúc mô-đun hóa chống ``God Context'': \mintinline{javascript}{AppContext.jsx} quản lý thẻ đang mở (\mintinline{javascript}{activeTab} đồng bộ hai chiều với truy vấn URL \mintinline{text}{?tab=...} và sự kiện \mintinline{text}{popstate}), trạng thái kết nối máy chủ (\mintinline{text}{backendStatus} kiểm tra mỗi $5\text{ s}$ qua \mintinline{text}{/api/health}), chủ đề giao diện Sáng/Tối (\mintinline{text}{theme} lưu trong \mintinline{text}{localStorage} kèm mã khởi tạo chống chớp màn hình trong \mintinline{text}{index.html}) và trạng thái đóng/mở bảng lệnh \mintinline{javascript}{CommandPalette} (\texttt{Cmd+K}/\texttt{Ctrl+K}); còn \mintinline{javascript}{ToastContext.jsx} quản lý thông báo độc lập. Các hook (\mintinline{javascript}{useEdaData}, \mintinline{javascript}{useForecast}, \mintinline{javascript}{useInventoryStream}, \mintinline{javascript}{useSalesStream}) duy trì bộ nhớ đệm cấp mô-đun, sử dụng kết nối SSE ưu tiên kèm dự phòng polling có \mintinline{javascript}{AbortController} và tự động tải lại khi \mintinline{text}{backendStatus} chuyển sang \mintinline{text}{ready}. Tệp \mintinline{text}{apiConfig.js} ưu tiên \mintinline{text}{VITE_API_BASE_URL}, tự động trỏ \mintinline{text}{http://localhost:3000} trên các cổng dev và dùng đường dẫn tương đối \mintinline{text}{/api} sau Nginx.
 
-\section{Đường ống nạp luồng và Lập chỉ mục trên bộ nhớ}
+\section{Đường ống nạp luồng và Lập chỉ mục đa chế độ}
 \label{sec:ch3-pipeline}
-Khi khởi chạy \texttt{backend/server.js}, hàm \texttt{startServer()} mở cổng HTTP \texttt{3000} ngay lập tức rồi chạy tiến trình nạp dữ liệu hai lượt tuyến tính \texttt{dataLoaderService.init()} trên thư mục \texttt{DATA\_DIR} (Hình~\ref{fig:data_pipeline}). Nhờ mở cổng trước khi nạp xong, \texttt{/api/health} phản hồi ngay trạng thái \texttt{'loading'} còn \texttt{readinessGuard} chặn các truy vấn nghiệp vụ bằng mã \texttt{503} trong suốt $2{,}5$--$3{,}3$ giây khởi tạo, đồng thời \texttt{server.js} hỗ trợ tắt máy chủ an toàn (\textit{graceful shutdown}) khi nhận tín hiệu \texttt{SIGTERM}/\texttt{SIGINT}.
-
 \begin{figure}[H]
 	\centering
 	\mermaidfile[width=0.95\linewidth, keepaspectratio]{diagrams/data_pipeline.mmd}
-	\caption{Đường ống nạp dữ liệu luồng và dựng $6$ chỉ mục RAM khi khởi động}
+	\caption{Đường ống khởi tạo dữ liệu kép (\texttt{memory} vs. \texttt{lakehouse}) và dựng các chỉ mục trên RAM}
 	\label{fig:data_pipeline}
 \end{figure}
 
-Đường ống sử dụng thư viện \texttt{csv-parser} để đọc luồng (\textit{stream parsing}) không chặn bộ nhớ đệm lớn, kèm cơ chế dự phòng bằng \texttt{readline} kết hợp hàm \texttt{parseCSVLine} chuẩn RFC 4180 (Mã nguồn~\ref{lst:csv-parser}) nhằm xử lý các chuỗi mô tả sản phẩm chứa dấu ngoặc kép lồng nhau.
+Khi khởi chạy \mintinline{text}{backend/server.js}, hàm \mintinline{text}{startServer()} mở cổng HTTP \mintinline{text}{3000} ngay lập tức trước khi gọi hàm khởi tạo \mintinline{javascript}{dataRepository.init()} theo biến \mintinline{text}{DATA_BACKEND} (Hình~\ref{fig:data_pipeline}): ở chế độ \mintinline{text}{memory}, \mintinline{javascript}{dataLoaderService.init()} nạp hai lượt CSV trong khoảng $2{,}5\text{ s}$ và chủ động gọi \mintinline{javascript}{setImmediate} nhường vòng lặp sự kiện sau mỗi $30.000$ bản ghi giúp API \mintinline{text}{/api/health} phản hồi tức thời mà không bị nghẽn CPU; ở chế độ \mintinline{javascript}{lakehouse}, \mintinline{javascript}{LakehouseRepository} nạp \mintinline{text}{serving_bundle.json} chỉ trong $16\text{ ms}$ (nhanh gấp $157\times$). Máy chủ đồng thời cài đặt bộ xử lý tắt an toàn (\textit{graceful shutdown}) cho tín hiệu \mintinline{text}{SIGTERM}/\mintinline{text}{SIGINT}.
+
+Đường ống sử dụng thư viện \mintinline{text}{csv-parser} để đọc luồng (\textit{stream parsing}) không chặn bộ nhớ đệm lớn, kèm cơ chế dự phòng bằng \mintinline{text}{readline} kết hợp hàm \mintinline{javascript}{parseCSVLine} chuẩn RFC 4180 (Mã nguồn~\ref{lst:csv-parser}) nhằm xử lý các chuỗi mô tả sản phẩm chứa dấu ngoặc kép lồng nhau.
 
 \begin{listing}[H]
 	\begin{minted}[fontsize=\footnotesize, linenos, breaklines]{javascript}
@@ -82,7 +83,7 @@ function parseCSVLine(line) {
 	\label{lst:csv-parser}
 \end{listing}
 
-Sau khi phân tách hai tập tin, \texttt{DataLoaderService} dựng đồng thời các cấu trúc dữ liệu và bộ nhớ đệm trên RAM (Bảng~\ref{tab:ram-structures}), giúp các yêu cầu sau đó chỉ thực hiện tra cứu $O(1)$ hoặc quét mảng kết quả tiền tính toán.
+Sau khi phân tách hai tập tin, \mintinline{javascript}{DataLoaderService} dựng đồng thời $8$ cấu trúc dữ liệu và bộ nhớ đệm trên RAM (Bảng~\ref{tab:ram-structures}), giúp cả truy vấn toàn cục lẫn cắt lớp OLAP Cube đều thực hiện ở tốc độ $O(1)$ hoặc quét tuyến tính cực nhỏ.
 
 \begin{table}[H]
 	\centering
@@ -90,23 +91,25 @@ Sau khi phân tách hai tập tin, \texttt{DataLoaderService} dựng đồng th�
 	\label{tab:ram-structures}
 	\footnotesize
 	\setlength{\tabcolsep}{4pt}
-	\begin{tabular}{p{5.2cm} p{2.8cm} p{7.0cm}}
+	\begin{tabular}{p{4.5cm} p{3.5cm} p{7.7cm}}
 		\toprule
-		\textbf{Thuộc tính nội bộ}      & \textbf{Kiểu dữ liệu}        & \textbf{Vai trò và cách xây dựng}                                                                                                          \\
+		\textbf{Thuộc tính nội bộ}                                           & \textbf{Kiểu dữ liệu}                  & \textbf{Vai trò và cách xây dựng}                                                                                                                                                            \\
 		\midrule
-		\texttt{\_rawSales}             & \texttt{Array<Object>}       & Lưu toàn bộ $125.751$ giao dịch bán hàng phục vụ lấy mẫu streaming.                                                                        \\
-		\texttt{\_rawInventory}         & \texttt{Array<Object>}       & Lưu toàn bộ $284.755$ bản ghi tồn kho phục vụ streaming theo lô $50$ dòng.                                                                 \\
-		\texttt{\_prodSales30dMap}      & \texttt{Map<string, number>} & Ánh xạ \texttt{Product No} sang tổng \texttt{Qty Sold} trong $30$ ngày cuối (\texttt{2026-03-25} -- \texttt{2026-04-24}).                  \\
-		\texttt{\_monthlyHistoryCache}  & \texttt{Map<string, Object>} & Tiền tính toán chuỗi $11$ tháng (điền $0$ tháng khuyết), \texttt{monthlyAvg} và \texttt{overallAvg} cho mỗi cặp \texttt{category:::store}. \\
-		\texttt{\_edaCache}             & \texttt{Object}              & Tiền tính toán $4$ tập dữ liệu: \texttt{revenueTrend}, \texttt{topCategories}, \texttt{channelSplit}, \texttt{returnRate}.                 \\
-		\texttt{\_inventoryAlertsCache} & \texttt{Array<Object>}       & Top $10$ cảnh báo đã khử trùng cặp \textit{(Category, Store)}, giữ tối đa $3$ \textit{Overstock} sau nhóm \textit{Low Stock}.              \\
+		\mintinline{text}{_rawSales}                                         & \mintinline{text}{Array<Object>}       & Lưu toàn bộ $125.751$ giao dịch bán hàng phục vụ lấy mẫu streaming và SSE.                                                                                                                   \\
+		\mintinline{text}{_rawInventory}                                     & \mintinline{text}{Array<Object>}       & Lưu toàn bộ $284.755$ bản ghi tồn kho phục vụ streaming theo lô $50$ dòng.                                                                                                                   \\
+		\mintinline{text}{_prodSales30dMap}                                  & \mintinline{text}{Map<string, number>} & Ánh xạ \mintinline{text}{Product No} sang tổng \mintinline{text}{Qty Sold} trong $30$ ngày cuối (\texttt{2026-03-25} -- \texttt{2026-04-24}).                                                \\
+		\mintinline{text}{_monthlyHistoryCache}                              & \mintinline{text}{Map<string, Object>} & Tiền tính toán chuỗi $11$ tháng (điền $0$ tháng khuyết), \mintinline{text}{monthlyAvg} và \mintinline{text}{overallAvg} cho mỗi cặp \mintinline{text}{category:::store}.                     \\
+		\mintinline{text}{_edaCache}                                         & \mintinline{text}{Object}              & Tiền tính toán $4$ tập dữ liệu EDA toàn cục không bộ lọc: \mintinline{text}{revenueTrend}, \mintinline{text}{topCategories}, \mintinline{text}{channelSplit}, \mintinline{text}{returnRate}. \\
+		\mintinline{text}{_edaCube}                                          & \mintinline{text}{Array<Object>}       & Khối lập phương OLAP gồm $7.517$ ô tiền tổng hợp theo \mintinline{text}{(month, store, division, category, channel)} phục vụ hàm \mintinline{text}{queryFilteredEda}.                        \\
+		\mintinline{text}{_distinctDivisions}, \mintinline{text}{_allMonths} & \mintinline{text}{Array<string>}       & Danh sách trục chiều phân loại (\mintinline{text}{3} nhóm hàng, \mintinline{text}{11} tháng) cung cấp cho \mintinline{text}{GET /api/eda/filters} bên cạnh $40$ cửa hàng và $27$ danh mục.   \\
+		\mintinline{text}{_inventoryAlertsCache}                             & \mintinline{text}{Array<Object>}       & Top $10$ cảnh báo đã khử trùng cặp \textit{(Category, Store)}, giữ tối đa $3$ \textit{Overstock} sau nhóm \textit{Low Stock}.                                                                \\
 		\bottomrule
 	\end{tabular}
 \end{table}
 
 \section{Bảo vệ Trạng thái khởi động và Xử lý biên dữ liệu}
 \label{sec:ch3-guard}
-Để ngăn chặn lỗi truy vấn rỗng khi container vừa khởi động hoặc trong quá trình nạp dữ liệu CSV, \texttt{app.js} gắn lớp trung gian \texttt{readinessGuard} trước toàn bộ nhóm đường dẫn \texttt{/api} (Mã nguồn~\ref{lst:readiness-guard}). Ngoại trừ \texttt{/api/health} luôn được thông qua để Docker healthcheck và giao diện theo dõi tiến trình nạp, mọi truy vấn khác khi \texttt{isReady() === false} sẽ nhận mã \texttt{HTTP 503 SERVICE\_UNAVAILABLE}.
+Để ngăn chặn lỗi truy vấn rỗng khi container vừa khởi động hoặc trong quá trình nạp dữ liệu CSV, \mintinline{text}{app.js} gắn lớp trung gian \mintinline{javascript}{readinessGuard} trước toàn bộ nhóm đường dẫn \mintinline{text}{/api} (Mã nguồn~\ref{lst:readiness-guard}). Ngoại trừ \mintinline{text}{/api/health} luôn được thông qua để Docker healthcheck và giao diện theo dõi tiến trình nạp, mọi truy vấn khác khi \mintinline{javascript}{isReady() === false} sẽ nhận mã \mintinline{text}{HTTP 503 SERVICE_UNAVAILABLE}.
 
 \begin{listing}[H]
 	\begin{minted}[fontsize=\footnotesize, linenos, breaklines]{javascript}
@@ -132,4 +135,43 @@ function createReadinessGuard(dataLoaderService) {
 	\label{lst:readiness-guard}
 \end{listing}
 
-Ngoài ra, đường ống xử lý còn giải quyết hai trường hợp biên thực tế: (1) nếu cặp \textit{(Product Category, Store)} không có giao dịch lịch sử trong \texttt{\_monthlyHistoryCache}, hàm \texttt{getMonthlySalesHistory} trả về chuỗi $0$ đủ độ dài toàn trục tháng của tập dữ liệu ($11$ tháng) và mảng trung bình $12$ tháng toàn $0$ để thuật toán dự báo không bị lỗi; (2) mọi trường số dạng chuỗi $4$ chữ số thập phân (như \texttt{"115.0000"}) đều được ép kiểu an toàn qua \texttt{Number(val) || 0}.
+Ngoài ra, đường ống xử lý còn giải quyết hai trường hợp biên thực tế: (1) nếu cặp \textit{(Product Category, Store)} không có giao dịch lịch sử trong \mintinline{text}{_monthlyHistoryCache}, hàm \mintinline{text}{getMonthlySalesHistory} trả về chuỗi $0$ đủ độ dài toàn trục tháng của tập dữ liệu ($11$ tháng) và mảng trung bình $12$ tháng toàn $0$ để thuật toán dự báo không bị lỗi; (2) mọi trường số dạng chuỗi $4$ chữ số thập phân (như \mintinline{text}{"115.0000"}) đều được ép kiểu an toàn qua \mintinline{javascript}{Number(val) || 0}.
+
+\section{Kiến trúc Medallion Lakehouse, Cổng chất lượng và Dagster}
+\label{sec:ch3-medallion}
+Bên cạnh chế độ xử lý hoàn toàn trên RAM, dự án xây dựng đường ống dữ liệu ngoại tuyến theo kiến trúc \textit{Medallion Lakehouse} trong thư mục \mintinline{text}{pipelines/} (Hình~\ref{fig:medallion_lakehouse}) bằng Python và công cụ phân tích nhúng \textbf{DuckDB}~\cite{raasveldt2019duckdb}:
+\begin{itemize}[topsep=0pt, itemsep=1pt]
+	\item \textbf{Tầng Bronze (\mintinline{text}{medallion/bronze.py}, \mintinline{text}{schemas/validator.py}):} Đọc dữ liệu bán lẻ thô (hoặc từ trình mô phỏng luồng \mintinline{text}{stream_processor.py}), kiểm định lược đồ JSON (\mintinline{text}{sales_event.schema.json}, \mintinline{text}{inventory_event.schema.json}), định tuyến bản ghi vi phạm sang vùng cách ly lỗi (DLQ), bổ sung giá trị băm toàn vẹn SHA-256 và ghi dưới dạng Parquet nén ZSTD.
+	\item \textbf{Tầng Silver (\mintinline{text}{medallion/silver.py}):} Chuẩn hóa kiểu dữ liệu, khử trùng lặp, bảo toàn cờ hoàn trả âm đúng quy ước, biến đổi $22.701$ mốc giả \mintinline{text}{End Date = 9999-12-31} thành chiều lịch sử SCD Type 2 (\mintinline{text}{dim_store}, \mintinline{text}{dim_category}, \mintinline{text}{inventory_scd2.parquet}) và đánh dấu bản ghi đang hiệu lực (\mintinline{text}{is_active_scd2}).
+	\item \textbf{Tầng Gold (\mintinline{text}{medallion/gold.py}):} Hợp nhất kho DuckDB (\mintinline{text}{gold.duckdb}) thành các bảng Star Schema gồm \mintinline{text}{eda_cube_monthly} ($7.517$ ô cắt đa chiều), \mintinline{text}{forecast_series_monthly} ($27 \times 40 \times 11 = 11.880$ dòng trù mật cho $1.080$ cặp), \mintinline{python}{prod_sales_30d}, danh sách Top $10$ cảnh báo xếp hạng sẵn và đóng gói thành \mintinline{text}{serving_bundle.json} để máy chủ Node.js khởi tạo trong $16\text{ ms}$.
+	\item \textbf{Điều phối và Hợp đồng chất lượng (\mintinline{text}{dagster_defs.py}, \mintinline{text}{gates.py}):} Toàn bộ các tài sản dữ liệu được khai báo dưới dạng \textit{Software-Defined Assets} trên Dagster (\texttt{pipelines/\allowbreak{}orchestration/}) và kiểm chứng qua $8$ cổng tự động khai báo trong \mintinline{text}{contracts.yml} trước khi cấp phát cho tầng phục vụ (Bảng~\ref{tab:quality-gates}).
+\end{itemize}
+
+\begin{figure}[H]
+	\centering
+	\mermaidfile[width=0.95\linewidth, keepaspectratio]{diagrams/medallion_lakehouse.mmd}
+	\caption{Đường ống Medallion Lakehouse (\textit{Bronze--Silver--Gold}), cổng chất lượng và ML}
+	\label{fig:medallion_lakehouse}
+\end{figure}
+
+\begin{table}[H]
+	\centering
+	\caption{Kết quả kiểm soát chất lượng $8/8$ cổng (\texttt{quality\_report.json})}
+	\label{tab:quality-gates}
+	\scriptsize
+	\setlength{\tabcolsep}{3.5pt}
+	\begin{tabular}{c p{5.0cm} l r c}
+		\toprule
+		\textbf{Cổng} & \textbf{Tên kiểm tra (\mintinline{text}{contracts.yml})}        & \textbf{Ngưỡng hợp đồng}                 & \textbf{Giá trị thực đo}                  & \textbf{Kết quả} \\
+		\midrule
+		Gate 1        & \mintinline{text}{silver_sales_row_floor}                       & $\ge 100.000$ dòng                       & $125.751$                                 & Đạt              \\
+		Gate 1        & \mintinline{text}{silver_inventory_row_floor}                   & $\ge 200.000$ dòng                       & $284.755$                                 & Đạt              \\
+		Gate 1        & \mintinline{text}{quarantine_ratio_within_sla}                  & $\le 0{,}5\%$ ($0{,}005$)                & $0{,}0\%$                                 & Đạt              \\
+		Gate 1        & \mintinline{text}{null_free_primary_dimensions}                 & $0$ dòng khuyết khóa chính               & $0$                                       & Đạt              \\
+		Gate 1        & \mintinline{text}{scd2_active_sentinel_normalized}              & Chuẩn hóa \texttt{9999-12-31}            & $22.701$                                  & Đạt              \\
+		Gate 2        & \texttt{silver\_to\_gold\_\allowbreak{}revenue\_reconciliation} & Sai lệch đối soát $\le 0{,}01$           & $0{,}00$                                  & Đạt              \\
+		Gate 2        & \mintinline{text}{dense_forecast_pair_coverage}                 & Đủ $27 \times 40 = 1.080$ cặp            & $1.080$                                   & Đạt              \\
+		Gate 2        & \texttt{distinct\_alert\_pairs\_\allowbreak{}and\_priority}     & $10$ cặp phân biệt, \textit{Low} ưu tiên & $10/10$, \mintinline{text}{priority=true} & Đạt              \\
+		\bottomrule
+	\end{tabular}
+\end{table}

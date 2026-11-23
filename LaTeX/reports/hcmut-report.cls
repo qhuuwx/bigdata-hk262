@@ -181,9 +181,10 @@
 \renewcommand{\@title}{Quy trình Thẩm định Tín dụng\\Home Credit Default Risk}
 \newcommand{\@advisor}{& Thạc sĩ Bùi Tiến Đức}
 \newcommand{\@stuname}{
-	& Doãn Phương Hùng Cường & L02 2310381\\
-	& A & L02 xxxxxxx\\
-	& B & L02 xxxxxxx}
+	& Doãn Phương Hùng Cường & L01 2310381\\
+	& Phan Quốc Hữu & L01 2311384\\
+	& Nguyễn Thị Thảo Nguyên & L01 2312371\\
+	& Phan Ngọc Quỳnh Trang & L01 2313518}
 \newcommand{\stuname}[1]{\renewcommand{\@stuname}{#1}}
 \newcommand{\@reportplace}{Thành phố Hồ Chí Minh}
 \newcommand{\reportplace}[1]{\renewcommand{\@reportplace}{#1}}

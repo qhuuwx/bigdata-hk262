@@ -1,6 +1,6 @@
 flowchart LR
-    S1["Sales CSV (125.751)"] --> RAM["RAM Index\n(dataLoaderService)"]
-    S2["Inventory CSV (284.755)"] --> RAM
-    RAM --> T1["EDA & Streaming"]
-    RAM --> T2["Dự báo Nhu cầu"]
-    RAM --> T3["Tồn kho Thông minh"]
+    CSV["CSVs + ML Cache"] -->|"memory"| REPO["DataRepository\n(Adapter)"]
+    GOLD["Medallion Gold\n(DuckDB/Parquet)"] -->|"lakehouse"| REPO
+    REPO --> T1["EDA & SSE Stream\n(Cube Filters)"]
+    REPO --> T2["3-Way Forecast\n(+ ML 80% CI)"]
+    REPO --> T3["Smart Inventory\n(+ Risk Simulator)"]

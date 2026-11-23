@@ -66,3 +66,16 @@ Get-ChildItem *.mmd | ForEach-Object { mmdc -i $_.Name -o "$($_.Name).pdf" }
 - **Chương 4 (`4_core_engines.tex`):** `polling_lifecycle.mmd`, `forecast_flow.mmd`, `inventory_classify_flow.mmd`
 - **Chương 5 (`5_ui_deployment.tex`):** `docker_topology.mmd` (cùng ảnh chụp màn hình trong `images/tab1_eda.png`..`tab3_inventory.png`)
 - **Chương 6 (`6_testing_evaluation.tex`):** `test_pyramid.mmd`
+
+---
+
+## 4. Biên dịch Slide Thuyết trình (`LaTeX/slides/slides.tex`)
+
+Slide sử dụng `beamerthemeretailintel.sty` (`1920x1080`, phông `BeVietnamPro` trong `fonts/`) và yêu cầu **XeLaTeX**:
+
+```bash
+cd LaTeX/slides
+latexmk -xelatex -interaction=nonstopmode slides.tex
+```
+
+Để hiển thị ghi chú thuyết trình (`\note{...}`), bỏ chú thích `\setbeameroption{show notes on second screen=right}` ở đầu `slides.tex`.

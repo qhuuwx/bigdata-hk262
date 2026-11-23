@@ -6,6 +6,8 @@ flowchart LR
     CACHE -->|"Không"| HIST["Chuỗi 11 tháng"]
     HIST --> SMA["Normal (SMA, N=4)"]
     HIST --> WMA["Super (WMA + Mùa vụ)"]
+    HIST --> ML["ML Cache (Hybrid GBDT + 80% CI)"]
     SMA --> DIFF["Lọc tối đa 8 kỳ lệch"]
     WMA --> DIFF
+    ML --> DIFF
     DIFF --> RET

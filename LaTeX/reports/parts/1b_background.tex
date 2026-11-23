@@ -1,0 +1,87 @@
+\part{Cơ sở lý thuyết và Kiến thức nền tảng}
+\label{part:background}
+
+Chương này hệ thống hóa nền tảng lý thuyết phục vụ thiết kế và đánh giá hệ thống \mintinline{text}{bigdata_inventory}. Mục~\ref{sec:bg-lakehouse} trình bày kiến trúc \textit{Medallion Lakehouse}, mô hình khối lập phương OLAP và kiểm soát trôi dạt phân phối. Mục~\ref{sec:bg-forecast} giới thiệu cơ sở toán học của dự báo chuỗi thời gian cổ điển, học máy bảng (\textit{panel forecasting}) và chuẩn đối chiếu không rò rỉ tương lai. Mục~\ref{sec:bg-imbalanced} phân tích bài toán kiểm soát tồn kho theo ngày bao phủ cùng phương pháp học máy trên dữ liệu mất cân bằng lớp (\textit{SMOTE-NC}, \textit{ADASYN} và \textit{PR-AUC}). Cuối cùng, Mục~\ref{sec:bg-arch} tóm tắt nguyên lý \textit{Clean Architecture}, mẫu \textit{Repository} và giao thức truyền luồng SSE.
+
+\section{Kiến trúc Medallion Lakehouse, OLAP Cube và Trôi dạt dữ liệu}
+\label{sec:bg-lakehouse}
+
+\subsection{Phân tầng Medallion và Lược đồ Sao trên DuckDB}
+Mô hình \textit{Medallion Lakehouse} tổ chức dữ liệu qua ba vùng chất lượng tăng dần trên nền tảng tệp cột nén ZSTD Parquet và động cơ truy vấn véctơ nhúng \textbf{DuckDB}~\cite{raasveldt2019duckdb}:
+\begin{itemize}[topsep=0pt, itemsep=1pt]
+	\item \textbf{Tầng Bronze (Dữ liệu thô kiểm định):} Lưu trữ nguyên trạng bản ghi nguồn kèm siêu dữ liệu băm toàn vẹn (SHA-256) và kiểm định lược đồ (\textit{JSON Schema}). Các bản ghi sai định dạng được định tuyến sang vùng cách ly lỗi (\textit{Dead-Letter Queue} --- DLQ) thay vì làm hỏng lô xử lý.
+	\item \textbf{Tầng Silver (Chuẩn hóa và Chiều lịch sử SCD Type 2):} Khử trùng lặp, chuẩn hóa kiểu số và xử lý thuộc tính biến đổi chậm theo thời gian (\textit{Slowly Changing Dimension Type 2}). Trong dữ liệu tồn kho, các bản ghi đang còn hiệu lực thường gán mốc kết thúc giả định (như \texttt{9999-12-31}) và được chuẩn hóa thành cờ boolean tường minh để phục vụ lọc nhanh.
+	\item \textbf{Tầng Gold (Bảng tổng hợp Star Schema và Khối OLAP Cube):} Tiền tổng hợp bảng sự kiện bán hàng theo đa chiều $(\text{Tháng}, \text{Cửa hàng}, \text{Nhóm hàng}, \text{Danh mục}, \text{Kênh})$ tạo thành khối lập phương OLAP (\textit{OLAP Hypercube}) cho phép cắt lớp (\textit{slice \& dice}) ở tốc độ dưới mili-giây mà không cần quét lại toàn bộ bảng giao dịch thô.
+\end{itemize}
+
+\subsection{Giám sát trôi dạt phân phối (PSI và Kiểm định KS)}
+Trước khi đưa vào huấn luyện định kỳ, hệ thống cần kiểm chứng giả định ổn định phân phối giữa tập tham chiếu quá khứ ($P$) và tập hiện tại ($Q$) thông qua hai thước đo:
+\begin{itemize}[topsep=0pt, itemsep=1pt]
+	\item \textbf{Chỉ số ổn định quần thể (\textit{Population Stability Index} --- PSI):} Chia miền giá trị thành $B$ giỏ theo phân vị trên $P$ và đo độ phân kỳ đối xứng:
+	      \begin{equation}
+		      \text{PSI} = \sum_{b=1}^{B} \bigl(P_b - Q_b\bigr)\,\ln\!\left(\dfrac{P_b}{Q_b}\right)
+	      \end{equation}
+	      Theo thông lệ ngành, $\text{PSI} < 0{,}1$ biểu thị phân phối ổn định, $0{,}1 \le \text{PSI} < 0{,}2$ cần theo dõi, còn $\text{PSI} \ge 0{,}2$ phát tín hiệu trôi dạt phân phối đáng kể.
+	\item \textbf{Thống kê hai mẫu Kolmogorov--Smirnov (KS):} Đo khoảng cách cực đại giữa hai hàm phân phối tích lũy thực nghiệm $D_{n,m} = \sup_{x} |F_{1,n}(x) - F_{2,m}(x)|$. Khi cỡ mẫu $n, m$ rất lớn (hàng chục nghìn dòng), trị số $p$ có thể rất nhỏ ngay cả khi hình dạng phân phối gần như đồng nhất; do đó thực hành sản xuất kết hợp $\text{PSI}$ cùng $D_{n,m}$ để tránh báo động giả.
+\end{itemize}
+
+\section{Dự báo chuỗi thời gian cổ điển và Học máy Bảng}
+\label{sec:bg-forecast}
+
+\subsection{Phương pháp làm mượt trượt cổ điển}
+Với chuỗi sản lượng theo tháng $\{y_1, y_2, \dots, y_T\}$ của một cặp \textit{(Danh mục, Cửa hàng)}, hai mô hình nền phổ biến trong chuỗi cung ứng gồm~\cite{hyndman2021forecasting}:
+\begin{itemize}[topsep=0pt, itemsep=1pt]
+	\item \textbf{Trung bình trượt đơn giản ($\text{SMA}_N$):} Dự báo bước tiếp theo bằng trung bình cộng đều của $N$ quan sát cuối cùng ($\hat{y}_{T+1} = \dfrac{1}{N}\sum_{k=1}^{N} y_{T+1-k}$). Mô hình ổn định trước nhiễu ngẫu nhiên nhưng trễ pha khi nhu cầu đổi xu hướng và bỏ qua tính mùa vụ.
+	\item \textbf{Trung bình trượt có trọng số kết hợp hệ số mùa vụ ($\text{WMA}_w \times SF_m$):} Gán trọng số tuyến tính tăng dần cho các kỳ gần nhất ($w=[1, 2, 3, 4]$, chuẩn hóa theo $\sum w_j = 10$) rồi nhân tỷ số mùa vụ $SF_m = \overline{y}_m / \overline{y}$. Phương pháp này nắm bắt đỉnh mùa vụ tốt hơn nhưng rất nhạy với các tháng lịch sử có mẫu nhỏ hoặc đột biến đơn lẻ.
+\end{itemize}
+
+\subsection{Học máy Bảng (Global Panel Forecasting) và Hàm mất mát phân vị}
+Thay vì khớp độc lập $1.080$ mô hình riêng lẻ cho từng cặp danh mục -- cửa hàng vốn dễ quá khớp khi chuỗi chỉ dài $11$ tháng, hướng tiếp cận \textit{Global Panel Forecasting} gộp toàn bộ các chuỗi thành một bảng dữ liệu chung sử dụng các đặc trưng trễ nhân quả (\mintinline{python}{lag_1..4}), thống kê cửa sổ trượt và biến phân loại nhóm sản phẩm. Ba họ mô hình đại diện được phối hợp gồm:
+\begin{itemize}[topsep=0pt, itemsep=1pt]
+	\item \textbf{Hồi quy Ridge (Điều chuẩn $L_2$):} Tối thiểu hóa hàm mục tiêu $\min_{\beta} \|y - X\beta\|_2^2 + \alpha \|\beta\|_2^2$. Thành phần phạt $L_2$ thu nhỏ đồng đều hệ số của các biến trễ có tương quan cao (\textit{multicollinearity} giữa \mintinline{python}{lag_1}, \mintinline{python}{sma_4}, \mintinline{python}{wma_4}), giảm phương sai dự báo đệ quy dài hạn.
+	\item \textbf{Rừng ngẫu nhiên (\textit{Random Forest})~\cite{breiman2001rf}:} Trung bình hóa nhiều cây quyết định huấn luyện trên các mẫu bootstrap và tập đặc trưng con ngẫu nhiên (\textit{bagging}), giúp giảm phương sai nhưng giữ nguyên tính bất biến trước phân phối lệch phải của sản lượng bán lẻ.
+	\item \textbf{Histogram-based Gradient Boosting Decision Trees (\textit{HistGBDT})~\cite{friedman2001gbm}:} Rời rạc hóa đặc trưng liên tục thành các thùng histogram để tăng tốc độ xây dựng cây tuần tự, mỗi cây mới $f_m(x)$ khớp theo độ dốc âm của hàm mất mát. Với chuỗi nhu cầu có đột biến lễ hội và lệch phải mạnh, hàm mất mát phân vị (\textit{Pinball / Quantile Loss}) tại mức $q \in (0, 1)$:
+	      \begin{equation}
+		      L_q(y, \hat{y}) = \max\bigl(q\,(y - \hat{y}),\; (q - 1)\,(y - \hat{y})\bigr)
+	      \end{equation}
+	      tạo độ bền vững trước ngoại lai tương tự $L_1$ khi $q=0{,}5$ và cho phép tinh chỉnh độ thiên lệch trên/dưới thông qua $q$ (ví dụ $q=0{,}42$).
+\end{itemize}
+
+\subsection{Xác thực mở rộng theo thời gian, Dải tin cậy và Thước đo lỗi}
+Đánh giá mô hình chuỗi thời gian tuyệt đối không được xáo trộn ngẫu nhiên (\textit{random k-fold}) vì sẽ gây rò rỉ thông tin tương lai. Chuẩn kiểm chứng nhân quả sử dụng \textbf{cửa sổ mở rộng theo thời gian} (\textit{Expanding-Window Time-Series CV}): ở mỗi mốc $t_{\text{val}}$, mô hình chỉ học trên lịch sử $t < t_{\text{val}}$ và dự báo đồng loạt toàn bộ cặp chuỗi tại $t_{\text{val}}$.
+
+Từ tập phần dư ngoài mẫu $r_i = y_i - \hat{y}_i$, có thể hiệu chuẩn thực nghiệm khoảng dự báo $80\%$ (\textit{80\% Prediction Interval}) phi tham số qua cặp phân vị thứ $10$ và $90$ ($q_{10}, q_{90}$) kết hợp hệ số giãn nở phương sai theo chân trời đệ quy $s \ge 0$:
+\begin{equation}
+	\bigl[\hat{L}^{(s)}_{80},\; \hat{U}^{(s)}_{80}\bigr] = \Bigl[\max\!\bigl(0,\;\hat{y}^{(s)} + q_{10}\sqrt{1 + \gamma s}\bigr),\;\; \max\!\bigl(0,\;\hat{y}^{(s)} + q_{90}\sqrt{1 + \gamma s}\bigr)\Bigr]
+\end{equation}
+
+Để đo chất lượng dự báo trên chuỗi bán lẻ có nhiều giá trị gần $0$ (nơi chỉ số \mintinline{text}{MAPE} truyền thống phân kỳ về vô cực khi chia cho $0$), bộ thước đo chuẩn sử dụng:
+\begin{itemize}[topsep=0pt, itemsep=1pt]
+	\item \textbf{MAE} $= \dfrac{1}{n}\sum |y_i - \hat{y}_i|$ và \textbf{RMSE} $= \sqrt{\dfrac{1}{n}\sum (y_i - \hat{y}_i)^2}$ (đo độ lớn sai số cùng đơn vị sản lượng).
+	\item \textbf{WAPE} (\textit{Weighted Absolute Percentage Error}) $= \dfrac{\sum |y_i - \hat{y}_i|}{\sum |y_i|} \times 100\%$: chuẩn hóa theo tổng sản lượng thực tế nên an toàn trước các cặp bán chậm có tháng bằng $0$.
+	\item \textbf{sMAPE} (\textit{Symmetric MAPE}) $= \dfrac{100\%}{n}\sum \dfrac{|y_i - \hat{y}_i|}{(|y_i| + |\hat{y}_i|)/2}$ và hệ số xác định $R^2$.
+\end{itemize}
+
+\section{Kiểm soát Tồn kho và Học máy trên Dữ liệu Mất cân bằng}
+\label{sec:bg-imbalanced}
+
+\subsection{Ngưỡng bao phủ tồn kho và Rủi ro Hàng tồn chết}
+Theo lý thuyết quản trị tồn kho định kỳ~\cite{silver2016inventory}, số ngày bao phủ nhu cầu (\textit{Days of Cover} --- $\text{DOC}$) được định nghĩa là tỷ số giữa lượng hàng tồn hiện tại và tốc độ tiêu thụ bình quân ngày trên cửa sổ tham chiếu $30$ ngày ($\text{DOC} = Q_{\text{hand}} / \bar{d}_{30}$). Việc áp đặt hai ngưỡng tác nghiệp ($\text{DOC} < 14$ là thiếu hụt cần bổ sung, $\text{DOC} \ge 60$ là dư thừa ứ đọng vốn) giúp phân loại nhanh toàn bộ điểm tồn kho, song dễ phát sinh vùng mù đối với các sản phẩm có $\bar{d}_{30} \le 0$ nhưng $Q_{\text{hand}} > 0$ (\textit{dead stock} --- hàng không luân chuyển).
+
+\subsection{Kỹ thuật cân bằng mẫu cô lập (SMOTE-NC và ADASYN)}
+Trong thực tế bán lẻ, các nhãn rủi ro thường là lớp thiểu số nghiêm trọng (\textit{Overstock} chỉ chiếm $6{,}69\%$ tồn kho, tỷ lệ hoàn trả chiếm khoảng $6\%$). Ở bài toán này, thước đo \textit{Accuracy} trở nên vô nghĩa vì bộ phân loại đoán toàn bộ lớp đa số vẫn đạt $> 93\%$. Hai kỹ thuật sinh mẫu tổng hợp trọng tâm gồm:
+\begin{itemize}[topsep=0pt, itemsep=1pt]
+	\item \textbf{SMOTE-NC (\textit{Synthetic Minority Over-sampling Technique for Nominal and Continuous})~\cite{chawla2002smote}:} Sinh điểm thiểu số mới trên đoạn thẳng nối với $k$ láng giềng gần nhất cho các chiều liên tục, đồng thời tính khoảng cách hỗn hợp có trọng số độ lệch chuẩn trung vị (\textit{median std}) và lấy giá trị xuất hiện nhiều nhất (\textit{majority vote}) trên các chiều phân loại rời rạc.
+	\item \textbf{ADASYN (\textit{Adaptive Synthetic Sampling})~\cite{he2008adasyn}:} Phân bổ số lượng mẫu tổng hợp tỷ lệ thuận với mật độ láng giềng thuộc lớp đa số xung quanh từng điểm thiểu số, tập trung tái lập ranh giới quyết định tại các vùng chồng lấn khó phân tách.
+\end{itemize}
+
+\paragraph{Nguyên tắc chống rò rỉ (Fold-Isolated Resampling):} Nếu chạy SMOTE-NC hoặc ADASYN trước khi chia tập huấn luyện -- kiểm định, các mẫu kiểm định có thể nhận bản sao gần kề nằm trong tập học, làm thổi phồng giả tạo chỉ số đánh giá. Do đó, mọi bước mã hóa (\textit{StandardScaler}, \textit{OrdinalEncoder}), mã hóa mục tiêu Empirical Bayes ($m$-estimate smoothing: $\hat{\mu}_c = \dfrac{n_c \bar{y}_c + m \bar{y}}{n_c + m}$) và sinh mẫu phải đóng gói chặt bên trong \texttt{imblearn.pipeline.Pipeline} để \textbf{chỉ thực thi trên từng nếp huấn luyện} (\texttt{X\_train\_fold}), giữ nguyên vẹn $100\%$ phân phối tự nhiên ở nếp kiểm định. Đồng thời, \textbf{PR-AUC} (diện tích dưới đường cong Precision--Recall) được ưu tiên hơn ROC-AUC vì phản ánh trực tiếp tỷ lệ báo động giả trên lớp thiểu số hiếm gặp~\cite{saito2015prauc}.
+
+\section{Kiến trúc Sạch, Mẫu Repository và Truyền luồng SSE}
+\label{sec:bg-arch}
+Để đảm bảo hệ thống dễ bảo trì khi thay đổi nguồn lưu trữ từ RAM sang kho Lakehouse hoặc tích hợp suy luận ML, phần máy chủ áp dụng kết hợp:
+\begin{itemize}[topsep=0pt, itemsep=1pt]
+	\item \textbf{Kiến trúc sạch (\textit{Clean Architecture})~\cite{martin2017clean}:} Nguyên tắc phụ thuộc hướng tâm bảo đảm các hàm thuật toán thuần túy ở lớp lõi không phụ thuộc vào giao thức HTTP Express hay chi tiết lưu trữ đĩa.
+	\item \textbf{Mẫu Repository và Đối đẳng bóng (\textit{Shadow Parity}):} Tầng dịch vụ giao tiếp qua giao diện kho dữ liệu trừu tượng (\mintinline{javascript}{dataRepository}), cho phép tráo đổi tức thời giữa nạp CSV trên RAM và nạp gói Gold tiền tổng hợp từ DuckDB cũng như kiểm chứng sai khác số học tự động giữa hai nguồn.
+	\item \textbf{RESTful API~\cite{fielding2000rest} kết hợp Server-Sent Events (SSE):} SSE đẩy dữ liệu một chiều từ máy chủ qua một kết nối HTTP bền vững (\mintinline{text}{Content-Type: text/event-stream}), giảm chi phí bắt tay lặp lại so với polling ngắn nhưng vẫn dễ dàng hạ cấp duyên dáng về HTTP polling khi bị chặn proxy. Tại lớp Nginx trung gian, đường ống SSE bắt buộc cấu hình \mintinline{nginx}{proxy_buffering off} và \mintinline{nginx}{gzip off} để các khung sự kiện rời mạng ngay lập tức.
+\end{itemize}

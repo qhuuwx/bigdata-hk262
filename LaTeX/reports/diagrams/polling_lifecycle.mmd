@@ -1,14 +1,17 @@
 sequenceDiagram
     participant Tab as React Tab
-    participant Poll as usePolling (2s)
+    participant Hook as SSE Hook
     participant Guard as readinessGuard
-    participant Svc as Backend Service
+    participant API as Express Controller
 
-    Tab->>Poll: Mount (visible)
-    Poll->>Guard: GET /api/* (timeout 10s)
-    alt Chưa sẵn sàng
+    Tab->>Hook: Mount & EventSource(/events)
+    alt Engine initializing
         Guard-->>Tab: 503 SERVICE_UNAVAILABLE
-    else Đã sẵn sàng
-        Guard->>Svc: Forward request
-        Svc-->>Tab: 200 OK (JSON)
+    else Engine ready
+        Hook->>API: Open SSE Stream
+        API-->>Hook: event: batch / inventory (2s)
+        opt Network/SSE errors >= 2
+            Hook->>API: Fallback 2s Polling (Abort 10s)
+            API-->>Hook: 200 OK JSON
+        end
     end

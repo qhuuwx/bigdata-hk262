@@ -1,7 +1,5 @@
 flowchart LR
-    FE["React 18 SPA\n(Hooks + Chart.js)"] -->|"/api/*"| NGX["Nginx Proxy\n(Gzip + :3000)"]
-    NGX --> MW["Middleware\n(CORS, 503 Guard)"]
-    MW --> API["Routes -> Controllers"]
-    API --> SVC["5 Services"]
-    SVC --> ALG["3 Pure Algorithms"]
-    SVC <--> RAM[("RAM Caches\n410.506 dòng")]
+    FE["React 18 SPA\n(ECharts 6 + Cmd+K)"] -->|"REST + SSE"| NGX["Nginx Proxy\n(Gzip / No-Buffer)"]
+    NGX --> API["Express Core\n(18 Routes, 503, 100KB)"]
+    API --> SVC["6 Services & Repository\n(MlService | memory/lakehouse)"]
+    SVC <--> DATA[("RAM Indexes or\nGold Bundle")]

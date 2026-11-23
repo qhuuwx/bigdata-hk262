@@ -1,0 +1,7 @@
+flowchart LR
+    RAW["CSV Datasets\n125,751 Sales | 284,755 Inv"] --> FE["DuckDB Feature Engineering\n15 Panel Cols | 15 Inv | 19 Ret"]
+    FE --> FC["train_forecast.py\nExpanding CV (t=7..10)\nHybrid GBDT + RF + Ridge"]
+    FE --> INV["train_classifiers.py\nStratified/Time CV\nFold-Isolated SMOTENC & ADASYN"]
+    FC --> ART["Artifacts (.joblib)\n+ 1,080x24 Cache + 80% CI"]
+    INV --> ART
+    ART --> SRV["Node.js mlService\nO(1) Lookup + Sigmoid Surface\n3 /api/ml/* Routes"]

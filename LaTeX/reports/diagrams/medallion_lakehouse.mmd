@@ -1,0 +1,7 @@
+flowchart LR
+    SRC["Raw CSVs / Redpanda\n(+ Schema & DLQ)"] --> BRZ["Bronze Layer\n(ZSTD Parquet + SHA256)"]
+    BRZ --> SLV["Silver Layer\n(SCD2, Dedup, Winsorize)"]
+    SLV --> G1{"Gate 1 & Gate 2\n(8/8 Contracts)"}
+    G1 --> GLD["Gold DuckDB Marts\n(Star Schema + Bundle)"]
+    G1 --> DRF["PSI & KS\nDrift Audit"]
+    GLD --> ML["ML Pipeline\n(GBDT + SMOTENC)"]

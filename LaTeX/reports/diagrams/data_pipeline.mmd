@@ -1,8 +1,8 @@
 flowchart TD
-    BOOT["app.listen(:3000) -> init()"] --> PARSE["Stream CSV (2 passes)"]
-    PARSE --> RAW["Raw Sales & Inventory"]
-    RAW --> W30["30d Map"]
-    RAW --> IDX["_monthlyHistoryCache (11m)"]
-    RAW --> EDA["EDA Cache (4 charts)"]
-    W30 --> ALERTS["Top 10 Alerts (7 Low / 3 Over)"]
-    ALERTS --> READY["isReady = true"]
+    BOOT["server.js :3000"] --> MODE{"DATA_BACKEND?"}
+    MODE -->|"memory (2.5s)"| CSV["2-Pass CSV Stream\n(setImmediate)"]
+    MODE -->|"lakehouse (16ms)"| GOLD["serving_bundle.json\n(7,517 Cube Cells)"]
+    CSV --> IDX["8 RAM Caches\n(30d, 11m, EDA Cube)"]
+    GOLD --> REPO["DataRepository"]
+    IDX --> REPO
+    REPO --> READY["isReady = true"]

@@ -1,35 +1,29 @@
 \part{Kiểm thử tự động, Đánh giá và Hướng phát triển}
 \label{part:ch6}
 
-Chương này báo cáo kết quả kiểm chứng toàn diện hệ thống \texttt{bigdata\_inventory}. Mục~\ref{sec:ch6-testing} trình bày kiến trúc bộ kiểm thử đa tầng và kết quả thực thi thực tế. Mục~\ref{sec:ch6-traceability} đối chiếu mức độ đáp ứng các câu hỏi nghiệp vụ và yêu cầu chức năng từ Chương~\ref{part:ch1}. Cuối cùng, Mục~\ref{sec:ch6-tradeoffs} phân tích thẳng thắn các đánh đổi kiến trúc, hạn chế hiện tại và đề xuất hướng phát triển tiếp theo.
+Chương này báo cáo kết quả kiểm chứng toàn diện hệ thống \mintinline{text}{bigdata_inventory}. Mục~\ref{sec:ch6-testing} trình bày kiến trúc bộ kiểm thử đa tầng và kết quả thực thi thực tế. Mục~\ref{sec:ch6-traceability} đối chiếu mức độ đáp ứng các câu hỏi nghiệp vụ và yêu cầu chức năng từ Chương~\ref{part:ch1}. Cuối cùng, Mục~\ref{sec:ch6-tradeoffs} phân tích thẳng thắn các đánh đổi kiến trúc, hạn chế hiện tại và đề xuất hướng phát triển tiếp theo.
 
 \section{Kiểm thử tự động đa tầng và Đo đạc hiệu năng}
 \label{sec:ch6-testing}
 \noindent
 \begin{minipage}[c]{0.6\textwidth}
 	\small
-	Hệ thống sở hữu hai bộ kiểm thử hoàn toàn không cần thư viện ngoài (sử dụng trực tiếp \texttt{node:assert} và \texttt{fetch} gốc của Node.js): \texttt{test\_m1.js} kiểm tra nhanh ở cấp thành phần và \texttt{test\_endpoints.js} ($1.640$ dòng) thực hiện kiểm thử đầu cuối (\textit{end-to-end}) gồm $129$ bài kiểm tra phân bố theo kim tự tháp $5$ tầng.
+	Hệ thống được kiểm chứng đồng bộ qua $5$ lớp kiểm thử tự động từ Node.js đến Python: bộ đơn vị \mintinline{text}{test_m1.js} kết hợp \mintinline{bash}{test_endpoints.js --unit-only}, bộ kiểm thử E2E $129$ ca (\mintinline{text}{test_endpoints.js}), kịch bản chịu tải $7$+4B pha (\mintinline{javascript}{scripts/stress_test.js}), kịch bản kiểm định đối đẳng hai chế độ \mintinline{text}{memory} vs. \mintinline{javascript}{lakehouse} (\mintinline{text}{scripts/shadow_parity.js}), và bộ kiểm thử \mintinline{bash}{pytest} cho đường ống Medallion và học máy.
 \end{minipage}
 \hfill
 \begin{minipage}[c]{0.4\textwidth}
 	\centering
 	\mermaidfile[width=\linewidth]{diagrams/test_pyramid.mmd}
-	\captionof{figure}{Cấu trúc kim tự tháp $129$ bài kiểm thử tự động}
+	\captionof{figure}{Cấu trúc kim tự tháp kiểm thử toàn stack}
 	\label{fig:test_pyramid}
 \end{minipage}
 
+Trên môi trường Node.js \mintinline{text}{v26.12.1} và Python \mintinline{text}{.venv}, toàn bộ bộ kiểm thử thực thi trực tiếp sau lần tái cấu trúc cuối đều đạt tỷ lệ $100\%$ (Bảng~\ref{tab:test-results} và Bảng~\ref{tab:multi-suite-results}):
 \begin{itemize}[topsep=0pt, itemsep=1pt]
-	\item \textbf{Tier 0 (DataLoader Pipeline):} Kiểm chứng nạp đủ $125.751$ dòng bán hàng, $284.755$ dòng tồn kho, $27$ danh mục, $40$ cửa hàng và tiền tính toán đầy đủ bộ nhớ đệm EDA và Top $10$ cảnh báo.
-	\item \textbf{Tier 1 (Feature Coverage, $55$ bài):} Bao phủ đường đi chuẩn của $11$ tính năng từ \texttt{F1} (\texttt{/api/stream/sales}) đến \texttt{F11} (\texttt{classifyInventory}).
-	\item \textbf{Tier 2 (Boundary \& Corner Cases, $60$ bài):} Kiểm tra đầu vào biên của REST API (kỳ $< 4$, kỳ $> 24$, chuỗi rỗng, kiểu \texttt{boolean}, đường dẫn \texttt{404}) và các biên toán học của thuật toán (lịch sử rỗng, chia $0$, \texttt{Qty on hand} âm, ranh giới chính xác $14 \times \text{avgDailySales}$ và $14 \times \text{avgDailySales} - 0{,}001$, $60 \times \text{avgDailySales}$).
-	\item \textbf{Tier 3 (Cross-Feature Combinations, $5$ bài):} Kiểm chứng tính đơn điệu tăng nghiêm ngặt của \texttt{cumulativeState} qua $4$ lượt gọi liên tiếp, nối luồng dữ liệu từ \texttt{F1} sang \texttt{F6} và đối chiếu chéo toán học.
-	\item \textbf{Tier 4 (Real-World Workflows \& Stress Test, $5$ bài):} Mô phỏng $4$ kịch bản nghiệp vụ người dùng thực tế và bài kiểm tra tải song song $24$ yêu cầu đồng thời (\textit{concurrent requests}).
-\end{itemize}
-
-Bảng~\ref{tab:test-results} tổng hợp kết quả chạy thực tế cả hai chế độ kiểm thử trên môi trường Node.js \texttt{v26.12.1}:
-\begin{itemize}[topsep=0pt, itemsep=1pt]
-	\item Chế độ ngoại tuyến (\texttt{node test\_endpoints.js --unit-only}): Đạt \textbf{$36/36$} bài kiểm thử đơn vị và đường ống nạp dữ liệu trong \textbf{$2{,}52\text{ s}$} ($93$ bài HTTP bỏ qua có chủ đích).
-	\item Chế độ đầy đủ (\texttt{node test\_endpoints.js}): Tự động khởi chạy máy chủ backend, hoàn tất toàn bộ \textbf{$129/129$} bài kiểm thử ($0$ thất bại, $0$ bỏ qua) trong \textbf{$5{,}85\text{ s}$}. Bài kiểm tra chịu tải $24$ yêu cầu đồng thời hoàn tất trong \textbf{$7\text{ ms}$} (thấp hơn rất nhiều so với ngưỡng $500\text{ ms}$).
+	\item \textbf{Đơn vị \& E2E (\mintinline{bash}{npm run test:unit}, \mintinline{bash}{npm test}):} \mintinline{text}{test:unit} đạt \textbf{$36/36$} kiểm tra (\mintinline{text}{test_m1.js} và \mintinline{bash}{--unit-only}) trong $2{,}51\text{ s}$; \mintinline{text}{test_endpoints.js} hoàn tất \textbf{$129/129$} bài kiểm thử ($0$ thất bại, $0$ bỏ qua).
+	\item \textbf{Chịu tải, Fuzzing \& Phase 4B (\mintinline{javascript}{scripts/stress_test.js}):} Vượt qua toàn bộ $7$ pha gốc cùng pha 4B mới: bảo vệ \texttt{503} và sẵn sàng sau $2.735\text{ ms}$; chịu tải \textbf{$750/750$} yêu cầu đồng thời ($5 \text{ đợt} \times 150$) đạt thông lượng \textbf{$6.556\text{ req/s}$} ($p_{50}=11{,}5\text{ ms}$, $p_{95}=22{,}85\text{ ms}$, $p_{99}=36{,}63\text{ ms}$, cực đại $37{,}24\text{ ms}$); $120/120$ tác vụ \mintinline{javascript}{stream+reset} nguyên tử và $40$ luồng đồng thời thu $2.000$ bản ghi; từ chối đầu vào fuzzing (\texttt{400}, \texttt{413} với payload $>100\text{ KB}$, an toàn trước khóa nguyên mẫu); \textbf{Pha 4B} đạt $20/20$ kết nối SSE đồng thời, $60/60$ truy vấn EDA OLAP Cube và $3$ điểm cuối \mintinline{text}{/api/ml/*}; LRU cache giữ chặt trần $1.500/1.500$ mục sau $2.000$ truy vấn phân biệt; bộ nhớ cuối \mintinline{text}{RSS = 504,5 MB} (\mintinline{text}{HeapUsed = 347,4 MB}) và thoát \mintinline{text}{SIGTERM} mã $0$.
+	\item \textbf{Đối đẳng Lakehouse (\mintinline{text}{scripts/shadow_parity.js}):} Khởi tạo chế độ \mintinline{javascript}{lakehouse} chỉ mất \textbf{$16\text{ ms}$} so với $2.516\text{ ms}$ trên RAM (nhanh gấp \textbf{$157\times$}, $7.517$ ô Cube); $4/4$ tổ hợp lọc EDA khớp sai lệch $<0{,}02$; $1.080/1.080$ chuỗi lịch sử dự báo khớp $<0{,}01$; $10/10$ cảnh báo khớp thứ tự; máy chủ chạy thật với \mintinline{javascript}{DATA_BACKEND=lakehouse} sẵn sàng sau $217\text{ ms}$ và trả \mintinline{text}{200 OK} trên mọi tuyến.
+	\item \textbf{Đường ống Python \& Giao diện (\mintinline{bash}{pytest}, \mintinline{text}{vite build}):} \mintinline{bash}{pytest} vượt qua \textbf{$8/8$} bài kiểm thử trong $9{,}57\text{ s}$ (Schema/DLQ, Silver SCD2, $8/8$ Quality Gates, SMOTENC/ADASYN không rò rỉ dữ liệu kiểm chứng, mô hình ML vượt trội SMA/WMA và suy luận tức thời); quá trình đóng gói \mintinline{text}{frontend} biến dịch $656$ mô-đun Vite \mintinline{text}{v5.4.21} thành công trong $2{,}20\text{ s}$.
 \end{itemize}
 
 \begin{table}[H]
@@ -38,37 +32,57 @@ Bảng~\ref{tab:test-results} tổng hợp kết quả chạy thực tế cả h
 	\setlength{\tabcolsep}{5pt}
 	\begin{tabular}{l c c c c c l}
 		\toprule
-		\textbf{Tầng kiểm thử}    & \textbf{Tổng số} & \makecell[r]{\textbf{Đạt}\\\textbf{(--unit-only)}} & \makecell[r]{\textbf{Đạt}\\\textbf{(Full E2E)}} & \textbf{Thất bại} & \makecell[r]{\textbf{Bỏ qua}\\\textbf{(Full)}} & \textbf{Trạng thái} \\
+		\textbf{Tầng kiểm thử}    & \textbf{Tổng số} & \makecell[r]{\textbf{Đạt}\\\textbf{(-{}-unit-only)}} & \makecell[r]{\textbf{Đạt}\\\textbf{(Full E2E)}} & \textbf{Thất bại} & \makecell[r]{\textbf{Bỏ qua}\\\textbf{(Full)}} & \textbf{Trạng thái} \\
 		\midrule
-		Tier 0 (DataLoader)       & $4$              & $4$                                                & $4$                                             & $0$               & $0$                                            & \textbf{PASSED}     \\
-		Tier 1 (Features F1--F11) & $55$             & $15$                                               & $55$                                            & $0$               & $0$                                            & \textbf{PASSED}     \\
-		Tier 2 (Boundary Cases)   & $60$             & $17$                                               & $60$                                            & $0$               & $0$                                            & \textbf{PASSED}     \\
-		Tier 3 (Cross-Feature)    & $5$              & $0$                                                & $5$                                             & $0$               & $0$                                            & \textbf{PASSED}     \\
-		Tier 4 (Scenarios/Stress) & $5$              & $0$                                                & $5$                                             & $0$               & $0$                                            & \textbf{PASSED}     \\
+		Tier 0 (DataLoader)       & $4$              & $4$                                                  & $4$                                             & $0$               & $0$                                            & \textbf{PASSED}     \\
+		Tier 1 (Features F1--F11) & $55$             & $15$                                                 & $55$                                            & $0$               & $0$                                            & \textbf{PASSED}     \\
+		Tier 2 (Boundary Cases)   & $60$             & $17$                                                 & $60$                                            & $0$               & $0$                                            & \textbf{PASSED}     \\
+		Tier 3 (Cross-Feature)    & $5$              & $0$                                                  & $5$                                             & $0$               & $0$                                            & \textbf{PASSED}     \\
+		Tier 4 (Scenarios/Stress) & $5$              & $0$                                                  & $5$                                             & $0$               & $0$                                            & \textbf{PASSED}     \\
 		\midrule
-		\textbf{Tổng cộng}        & \textbf{$129$}   & \textbf{$36$}                                      & \textbf{$129$}                                  & \textbf{$0$}      & \textbf{$0$}                                   & \textbf{100\% PASS} \\
+		\textbf{Tổng cộng}        & \textbf{$129$}   & \textbf{$36$}                                        & \textbf{$129$}                                  & \textbf{$0$}      & \textbf{$0$}                                   & \textbf{100\% PASS} \\
 		\bottomrule
 	\end{tabular}
 	\caption{Kết quả thực thi bộ kiểm thử \texttt{test\_endpoints.js} theo từng tầng}
 	\label{tab:test-results}
 \end{table}
 
+\begin{table}[H]
+	\centering
+	\caption{Tổng hợp kết quả kiểm chứng đa bộ kiểm thử và đóng gói thực tế}
+	\label{tab:multi-suite-results}
+	\footnotesize
+	\begin{tabular}{l l p{5.5cm} l}
+		\toprule
+		\textbf{Lệnh kiểm chứng}                           & \textbf{Phạm vi}     & \textbf{Chỉ số chính ghi nhận}                                                        & \textbf{Kết quả} \\
+		\midrule
+		\mintinline{bash}{npm run test:unit}               & Đơn vị \& DataLoader & $36/36$ bài đạt trong $2{,}51\text{ s}$ ($93$ HTTP chủ động bỏ qua)                   & \textbf{PASS}    \\
+		\mintinline{bash}{npm test}                        & E2E REST Tier 0--4   & $129/129$ bài đạt ($0$ lỗi, $0$ bỏ qua)                                               & \textbf{PASS}    \\
+		\mintinline{bash}{npm run test:stress}             & Chịu tải 7 + 4B pha  & $750/750$ req ($6.556\text{ req/s}$, $p_{95}=22{,}85\text{ ms}$), $20$ SSE, $60$ Cube & \textbf{PASS}    \\
+		\mintinline{bash}{npm run test:parity}             & Đối đẳng Lakehouse   & $16\text{ ms}$ vs. $2.516\text{ ms}$ ($157\times$), $4/4$ lọc, $1.080/1.080$ chuỗi    & \textbf{PASS}    \\
+		\mintinline{bash}{pytest pipelines/tests ml/tests} & Medallion \& ML      & $8/8$ kiểm thử đạt trong $9{,}57\text{ s}$ ($0\%$ rò rỉ kiểm chứng)                   & \textbf{PASS}    \\
+		\mintinline{bash}{frontend: npm run build}         & Đóng gói sản xuất    & Vite \mintinline{text}{v5.4.21} chuyển đổi $656$ mô-đun trong $2{,}20\text{ s}$       & \textbf{PASS}    \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
 \section{Đối chiếu mức độ hoàn thành mục tiêu}
 \label{sec:ch6-traceability}
-Bảng~\ref{tab:traceability} đối chiếu năm câu hỏi nghiệp vụ (Q1--Q5) và chín yêu cầu chức năng (FR-01--FR-09) từ Chương~\ref{part:ch1} với thành phần hiện thực và bằng chứng kiểm thử tương ứng.
+Bảng~\ref{tab:traceability} đối chiếu sáu câu hỏi nghiệp vụ (Q1--Q6) và $12$ yêu cầu chức năng (FR-01--FR-12) từ Chương~\ref{part:ch1} với thành phần hiện thực và bằng chứng kiểm thử tương ứng.
 
 \begin{table}[H]
 	\centering
 	\footnotesize
-	\begin{tabular}{c | l p{6cm} l}
+	\begin{tabular}{c | l p{5.8cm} l}
 		\toprule
-		{} & \textbf{Yêu cầu liên quan} & \textbf{Thành phần hiện thực}                                                & \textbf{Bằng chứng kiểm thử}         \\
+		{} & \textbf{Yêu cầu liên quan} & \textbf{Thành phần hiện thực}                                                                                                       & \textbf{Bằng chứng kiểm thử}                                             \\
 		\midrule
-		Q1       & FR-01, FR-03               & \texttt{salesStreamService}, \texttt{useSalesStream}, \textbf{EdaTab}        & Tier 0, F1, Tier 4 (Sc. 3)     \\
-		Q2       & FR-01, FR-04               & \texttt{edaService}, \texttt{\_buildEdaCache}, \textbf{EdaTab}               & Tier 0, F2--F5, Tier 4 (Sc. 4) \\
-		Q3       & FR-05, FR-06               & \texttt{runForecast}, \texttt{runForecastSuper}, \textbf{ForecastTab}        & F6, F9, F10, Tier 4 (Sc. 2)    \\
-		Q4       & FR-07                      & \texttt{forecastService} (\texttt{toFixed(2)}), \texttt{ForecastDiffTable}   & F6, Tier 3 (T3.5)              \\
-		Q5       & FR-08, FR-09               & \texttt{classifyInventory}, \texttt{inventoryService}, \textbf{InventoryTab} & F7, F8, F11, Tier 3--4         \\
+		Q1       & FR-01, FR-03               & \mintinline{javascript}{salesStreamService}, SSE \mintinline{text}{/events}, \mintinline{javascript}{useSalesStream}                & Tier 0, F1, \mintinline{javascript}{stress_test} 4B                \\
+		Q2       & FR-04, FR-10, FR-12        & \mintinline{javascript}{edaService}, \mintinline{text}{_edaCube} ($7.517$ ô), \textbf{EdaTab} ECharts 6                             & Tier 0, F2--F5, \mintinline{text}{shadow_parity}                   \\
+		Q3       & FR-05, FR-06, FR-11        & \mintinline{javascript}{runForecast}, \mintinline{javascript}{runForecastSuper}, \mintinline{javascript}{mlService} (GBDT+$80\%$CI) & F6, F9, F10, \mintinline{bash}{pytest}, Parity                     \\
+		Q4       & FR-07                      & \mintinline{javascript}{forecastService}, \mintinline{javascript}{ForecastDiffTable}                                                & F6, Tier 3 (T3.5)                                                  \\
+		Q5       & FR-08, FR-09, FR-10        & \mintinline{javascript}{classifyInventory}, \mintinline{javascript}{inventoryService}, SSE, Gold Gates                              & F7, F8, F11, \mintinline{bash}{pytest} Gates ($8/8$)               \\
+		Q6       & FR-11, FR-12               & \mintinline{text}{/api/ml/classify-inventory}, \mintinline{python}{SMOTENC}, \textbf{InventoryTab}                                  & \mintinline{javascript}{stress_test} 4B, \mintinline{bash}{pytest} \\
 		\bottomrule
 	\end{tabular}
 	\caption{Ma trận truy xuất yêu cầu nghiệp vụ, hiện thực và kiểm thử}
@@ -77,20 +91,20 @@ Bảng~\ref{tab:traceability} đối chiếu năm câu hỏi nghiệp vụ (Q1--
 
 \section{Hạn chế và Các đánh đổi kỹ thuật}
 \label{sec:ch6-tradeoffs}
-Qua quá trình kiểm toán dữ liệu và đánh giá vận hành, nhóm ghi nhận năm hạn chế:
+Dù đã khắc phục được các lỗ hổng ban đầu về đối chuẩn sai số thời gian (\textit{expanding-window backtesting}), bộ lọc OLAP đa chiều trên \textbf{EdaTab}, kết nối SSE và nhận diện hàng tồn chết ở bộ mô phỏng ML, hệ thống vẫn tồn tại năm đánh đổi và hạn chế trung thực:
 \begin{enumerate}[label=\textit{\arabic*},topsep=0pt, itemsep=1pt]
-	\item \textbf{Tính bay hơi của trạng thái trên RAM:} Toàn bộ bộ đếm \texttt{\_cumulativeState} và \texttt{\_forecastCache} nằm trên bộ nhớ của một tiến trình Node.js đơn lẻ; khi khởi động lại container backend, số liệu tích lũy sẽ trở về $0$ và dữ liệu CSV phải nạp lại từ đầu.
-	\item \textbf{Mô phỏng luồng từ tập tin tĩnh:} Hai tuyến đường API streaming là \texttt{/api/stream/sales} và \texttt{/api/inventory/stream} trích mẫu ngẫu nhiên từ CSV tĩnh thay vì tiêu thụ sự kiện thời gian thực từ hàng đợi thông điệp, nên chưa phản ánh hiện tượng trễ sự kiện (\textit{late-arriving events}) hay mất cân bằng tải thực tế.
-	\item \textbf{Thiếu thước đo sai số hậu kiểm cho dự báo:} Hệ thống mới dừng ở việc đối chiếu độ lệch giữa SMA và WMA + mùa vụ trong tương lai (\textit{forecast divergence}), chưa triển khai đánh giá chéo theo thời gian (\textit{walk-forward backtesting}) với các chỉ số như RMSE hay MAPE trên tập kiểm tra lịch sử.
-	\item \textbf{Độ nhạy của nhánh dự phòng tồn kho:} Như phân tích ở Chương~\ref{part:ch2}, $25{,}72\%$ bản ghi tồn kho ($73.247$ dòng) có $\text{avgDailySales} \le 0$ được gán nhãn \textit{Healthy}, có thể che khuất nhóm hàng tồn đọng chết (\textit{dead stock}). (Vấn đề trùng lặp cặp \textit{(Category, Store)} ở bảng Top $10$ trước đây đã được khắc phục trong bản cập nhật mới nhất của \texttt{dataLoaderService.js}.)
-	\item \textbf{Chưa có xác thực và lọc đa chiều trên giao diện:} Hệ thống chưa tích hợp đăng nhập phân quyền theo từng cửa hàng, và các biểu đồ EDA trên \textbf{EdaTab} đang hiển thị tổng hợp toàn chuỗi thay vì lọc tương tác theo từng \textit{Store} hoặc \textit{Product Division}.
+	\item \textbf{Tính bay hơi của bộ đếm phiên trên tiến trình đơn:} Bộ đếm \mintinline{javascript}{_cumulativeState} và \mintinline{text}{_forecastCache} vẫn lưu trên RAM của tiến trình phục vụ đơn lẻ thay vì đồng bộ xuống Redis bền vững khi chạy tách rời không có \mintinline{bash}{--profile pipeline}.
+	\item \textbf{Khoảng cách giữa cấu hình hạ tầng streaming và luồng Node.js hiện tại:} Các dịch vụ Redpanda, Redis và ClickHouse mới được cấu hình dưới hồ sơ \mintinline{bash}{--profile pipeline} cùng mô-đun giả lập Python \mintinline{text}{stream_processor.py}; hai điểm cuối SSE của Node.js vẫn trích mẫu từ dữ liệu đã nạp sẵn thay vì tiêu thụ sự kiện trực tiếp từ topic Kafka/Redpanda.
+	\item \textbf{Giới hạn tín hiệu của bài toán dự đoán hoàn trả đơn lẻ:} Dù đã kiểm chứng qua cả tách chuỗi thời gian (\mintinline{python}{TimeSeriesSplit} $3$-fold đạt PR-AUC $0{,}0727$) lẫn $4$-fold \textit{StratifiedKFold} cô lập \textit{ADASYN/SMOTENC} ($0{,}0752$--$0{,}0760$ quanh tỷ lệ nền $6{,}03\%$), bài toán vẫn khó cải thiện do cột lý do hoàn trả trống $100\%$ và dữ liệu nguồn khuyết đặc trưng kích cỡ hay lịch sử người mua; tương tự, khi loại bỏ đặc trưng \mintinline{python}{qty_on_hand} trong bài kiểm định không rò rỉ, \textit{Macro-F1} phân loại tồn kho dừng ở $0{,}4705$.
+	\item \textbf{Quy tắc mặc định bảo toàn ở luồng tích lũy tổng hợp:} Để giữ tương thích ngược với bộ kiểm thử quy tắc ($129$ ca) ở Chương~\ref{part:ch4}, hàm \mintinline{javascript}{classifyInventory} vẫn xếp $25{,}72\%$ tồn kho có $\text{avgDailySales} \le 0$ vào nhãn \textit{Healthy}; cảnh báo \mintinline{text}{isDeadStockCandidate} chỉ được tách tường minh ở tầng suy luận ML (\mintinline{text}{/api/ml/classify-inventory}).
+	\item \textbf{Chưa tích hợp xác thực và phân quyền người dùng:} Ứng dụng chưa có cơ chế đăng nhập/RBAC giới hạn quyền truy cập dữ liệu theo từng cửa hàng.
 \end{enumerate}
 
 \section{Hướng phát triển}
-Để mở rộng thành hệ thống xử lý dữ liệu lớn cấp sản xuất, nhóm đề xuất bốn hướng:
+Để thu hẹp các khoảng trống trên trong môi trường sản xuất thực tế, nhóm đề xuất:
 \begin{itemize}[topsep=0pt, itemsep=1pt]
-	\item \textbf{Kiến trúc luồng và lưu trữ bền vững:} Tích hợp Apache Kafka làm tầng thu nhận giao dịch thời gian thực, kết hợp Redis để chia sẻ trạng thái tích lũy đa nút và PostgreSQL/TimescaleDB lưu chuỗi thời gian lịch sử thay cho RAM đơn nút.
-	\item \textbf{Mở rộng mô hình dự báo và kiểm định định lượng:} Bổ sung bộ đánh giá sai số RMSE/MAPE trên các tháng gần nhất (\texttt{2026-02}--\texttt{2026-04}), thử nghiệm mô hình học máy chuỗi thời gian (XGBoost hoặc Prophet) và tách nhóm hàng có $\text{sales30d} = 0$ thành nhãn riêng \textit{Dead Stock} thay vì gộp vào \textit{Healthy}.
-	\item \textbf{Xếp hạng mức độ thiếu hụt và lọc tương tác trên SPA:} Xếp hạng bảng Top $10$ cảnh báo theo mức độ thiếu hụt \textit{days of cover} tăng dần thay vì thứ tự duyệt tệp; bổ sung bộ lọc \textit{Store} và \textit{Product Division} cho bốn biểu đồ EDA.
-	\item \textbf{Tự động hóa CI/CD:} Thiết lập quy trình GitHub Actions tự động chạy bộ kiểm thử \texttt{test\_endpoints.js}, dựng ảnh Docker và biên dịch báo cáo LaTeX mỗi khi có thay đổi trên nhánh chính.
+	\item \textbf{Kích hoạt tiêu thụ sự kiện và đồng bộ bộ nhớ đệm trực tiếp:} Kết nối worker tiêu thụ Redpanda trong \mintinline{text}{backend/} để ghi sự kiện bán hàng xuống ClickHouse/DuckDB và lưu bền vững \mintinline{javascript}{_cumulativeState} vào Redis thay cho RAM đơn nút.
+	\item \textbf{Bổ sung đặc trưng ngữ cảnh cho mô hình hoàn trả:} Thu thập thêm lịch sử đổi trả theo mã khách hàng, thông số kích cỡ/biến thể giày dép và bắt buộc nhập lý do hoàn trả tại quầy để nâng PR-AUC dự báo hoàn trả.
+	\item \textbf{Xếp hạng cảnh báo theo độ cấp bách \textit{days of cover}:} Bổ sung cơ chế sắp xếp bảng Top $10$ cảnh báo theo số ngày bao phủ tăng dần kết hợp giá trị hàng tồn đọng chết để tối ưu vốn lưu động.
+	\item \textbf{Tự động hóa CI/CD và Bảo mật RBAC:} Thiết lập GitHub Actions chạy đủ $4$ bộ kiểm thử JS/Python, kiểm tra hợp đồng \mintinline{text}{contracts.yml}, kiểm toán trôi dạt PSI/KS, dựng ảnh Docker và bổ sung xác thực OAuth2/RBAC theo cửa hàng.
 \end{itemize}

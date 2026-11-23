@@ -1,5 +1,11 @@
 flowchart LR
-    USER["Browser :3001"] --> FE["Frontend (nginx:alpine)\ndist/ + Gzip"]
-    FE -->|"/api/ (90s)"| BE["Backend (node:18-alpine)\n:3000 + CSVs"]
+    USER["Browser :3001"] --> FE["Frontend (nginx:alpine)\ndist/ (ECharts 6) + Gzip + SSE Proxy"]
+    FE -->|"/api/ REST (90s) & SSE (3600s)"| BE["Backend (node:18-alpine)\n:3000 + CSV + ml/artifacts + lakehouse"]
     BE --- HC["HEALTHCHECK (5s)\n127.0.0.1:3000/api/health"]
     FE -.->|"service_healthy"| BE
+    subgraph PIPE ["--profile pipeline (Tùy chọn)"]
+        RP["Redpanda :19092"]
+        RD["Redis 7 :6379"]
+        CH["ClickHouse :8123"]
+    end
+    BE -.->|"Env Hooks"| PIPE

@@ -1,12 +1,15 @@
 flowchart LR
-    ITEM["Inventory Item"] --> AVG["avg = sales30d / 30"]
-    AVG --> C0{"avg <= 0?"}
+    ITEM["Inventory Item"] --> RULE["Rule Threshold\n(avg = sales30d / 30)"]
+    ITEM --> MLREQ["POST /api/ml/classify-inventory"]
+    RULE --> C0{"avg <= 0?"}
     C0 -->|"Có"| H["Healthy"]
     C0 -->|"Không"| C1{"Qty >= 60 * avg?"}
     C1 -->|"Có"| O["Overstock"]
     C1 -->|"Không"| C2{"Qty < 14 * avg?"}
     C2 -->|"Có"| L["Low Stock"]
     C2 -->|"Không"| H
-    L --> ACC["RAM State & Top 10"]
+    L --> ACC["RAM State, SSE & Top 10"]
     O --> ACC
     H --> ACC
+    MLREQ --> SIG["SMOTENC Sigmoid\n+ isDeadStockCandidate"]
+    SIG --> PROB["P(Healthy, Low, Over)"]

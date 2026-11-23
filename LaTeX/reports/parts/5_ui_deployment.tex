@@ -1,101 +1,113 @@
 \part{Giao diện SPA, Đặc tả API và Triển khai Docker}
 \label{part:ch5}
 
-Chương này trình bày tầng giao tiếp người dùng và hạ tầng vận hành của \texttt{bigdata\_inventory}. Mục~\ref{sec:ch5-ui} mô tả thiết kế ứng dụng React 18 SPA và kỹ thuật bọc biểu đồ Chart.js. Mục~\ref{sec:ch5-api} đặc tả đầy đủ $12$ điểm cuối REST API cùng quy tắc kiểm tra hợp lệ đầu vào. Mục~\ref{sec:ch5-docker} trình bày cấu trúc đóng gói đa container bằng Docker Compose và cấu hình ủy quyền ngược Nginx.
+Chương này trình bày tầng giao tiếp người dùng và hạ tầng vận hành của \mintinline{text}{bigdata_inventory}. Mục~\ref{sec:ch5-ui} mô tả thiết kế ứng dụng React 18 SPA, bọc biểu đồ \textbf{Apache ECharts 6}, giao diện Sáng/Tối và bảng lệnh \texttt{Cmd+K}. Mục~\ref{sec:ch5-api} đặc tả đầy đủ $18$ điểm cuối REST/SSE cùng quy tắc kiểm tra hợp lệ đầu vào. Mục~\ref{sec:ch5-docker} trình bày cấu trúc đóng gói đa container bằng Docker Compose, tùy chọn \mintinline{bash}{--profile pipeline} và cấu hình Nginx hỗ trợ SSE.
 
-\section{Thiết kế giao diện React 18 SPA và Chart.js}
+\section{Thiết kế giao diện React 18 SPA và Apache ECharts 6}
 \label{sec:ch5-ui}
-Giao diện người dùng được xây dựng bằng React 18, Vite 5 và Tailwind CSS theo phong cách bảng điều khiển phân tích định lượng: bề mặt nền sáng (\texttt{\#F8FAFC}), thanh điều hướng bên trái tông xám đen đậm (\texttt{\#0F172A}, hỗ trợ thu gọn trên \texttt{Sidebar.jsx}), phông chữ giao diện \textit{Inter} kết hợp phông đơn cách \textit{JetBrains Mono} (\texttt{tabular-nums}) cho các trường mã cửa hàng, mốc thời gian và số liệu định lượng. Thanh tiêu đề \texttt{Header.jsx} hiển thị trạng thái kết nối thời gian thực (\texttt{ENGINE READY | 410,506 rows}) đồng bộ mỗi $5$ giây qua \texttt{/api/health}. Hệ thống tổ chức thành ba thẻ tương tác độc lập:
+Giao diện người dùng được xây dựng bằng React 18, Vite 5 và Tailwind CSS theo phong cách bảng điều khiển phân tích định lượng: hỗ trợ chuyển đổi hai chủ đề \textbf{Sáng (\texttt{\#F8FAFC})} và \textbf{Tối (\texttt{\#0B1120})} (lưu \mintinline{text}{localStorage} kèm đoạn mã khởi tạo chống chớp khung hình trong \mintinline{text}{index.html}), phông chữ \textit{Inter} kết hợp đơn cách \textit{JetBrains Mono} (\mintinline{text}{tabular-nums}). Toàn hệ thống tích hợp đồng bộ tham số URL (\mintinline{text}{?tab=...}), khung xương tải dữ liệu (\mintinline{javascript}{Skeleton.jsx}), hiệu ứng đếm số mượt $320\text{ ms}$ (\mintinline{javascript}{useAnimatedCounter}) và bảng lệnh điều hướng nhanh \textbf{\mintinline{javascript}{CommandPalette.jsx}} (\texttt{Cmd+K}/\texttt{Ctrl+K}) cho phép nhảy thẳng tới dự báo của $27$ danh mục và $40$ cửa hàng. Thanh tiêu đề \mintinline{javascript}{Header.jsx} hiển thị trạng thái kết nối và chế độ kho dữ liệu (\mintinline{text}{ENGINE READY | 410,506 rows}) mỗi $5\text{ s}$ qua \mintinline{text}{/api/health}. Ứng dụng tổ chức thành ba thẻ:
 \begin{itemize}[topsep=0pt, itemsep=1pt]
-	\item \textbf{EdaTab.jsx (Hình~\ref{fig:ui-tab1-eda}):} Kết hợp bảng luồng giao dịch trực tiếp (\texttt{SalesStreamTable}, có nút \textit{Tạm dừng/Tiếp tục} và \textit{Xóa bộ đệm}) cùng lưới $2 \times 2$ cho $4$ biểu đồ Chart.js: \texttt{LineChart} (doanh thu theo tháng), \texttt{BarChart} ngang (top $10$ danh mục), \texttt{DoughnutChart} (cơ cấu kênh) và \texttt{BarChart} dọc (tỷ lệ hoàn trả).
-	\item \textbf{ForecastTab.jsx (Hình~\ref{fig:ui-tab2-forecast}):} Thanh cấu hình gồm $2$ danh sách chọn (\textit{Product Category}, \textit{Store ID}) nạp từ API, ô nhập số kỳ ($4$--$24$), biểu đồ đường kép so sánh Normal xanh dương (\texttt{\#1D4ED8}) vs. Super cam (\texttt{\#D97706}) và bảng đối soát \texttt{ForecastDiffTable}.
-	\item \textbf{InventoryTab.jsx (Hình~\ref{fig:ui-tab3-inventory}):} Biểu đồ \texttt{DoughnutChart} tích lũy ($68\%$ cutout, có nút \textit{Đặt lại}), $3$ thẻ KPI nền trắng viền trái phân biệt trạng thái (\textit{Healthy} xanh lá, \textit{Low Stock} cam, \textit{Overstock} đỏ) kèm thanh tiến trình tỷ trọng, thanh tổng số bản ghi đã xử lý và bảng \texttt{InventoryAlertsTable}.
+	\item \textbf{EdaTab.jsx (Hình~\ref{fig:ui-tab1-eda}):} Bổ sung thanh \textbf{lọc đa chiều OLAP Cube} (\textit{Cửa hàng}, \textit{Nhóm hàng}, \textit{Từ tháng}, \textit{Đến tháng} nạp từ \mintinline{text}{/api/eda/filters}), bảng luồng SSE/polling (\mintinline{javascript}{SalesStreamTable}, có nút \textit{Tạm dừng/Tiếp tục} và \textit{Xóa bộ đệm}) cùng lưới $2 \times 2$ bốn biểu đồ Apache ECharts 6: \mintinline{javascript}{LineChart} (doanh thu tháng), \mintinline{javascript}{BarChart} ngang (top $10$ danh mục), \mintinline{javascript}{DoughnutChart} (cơ cấu kênh) và \mintinline{javascript}{BarChart} dọc (tỷ lệ hoàn trả).
+	\item \textbf{ForecastTab.jsx (Hình~\ref{fig:ui-tab2-forecast}):} Chọn cặp danh mục, cửa hàng và số kỳ ($4$--$24$); hiển thị biểu đồ đường ECharts 6 đối chiếu \textit{Normal (SMA)}, \textit{Super (WMA + Mùa vụ)} và \textbf{Hybrid GBDT} kèm \textbf{dải khoảng tin cậy $80\%$} (\mintinline{text}{mlLower80}--\mintinline{text}{mlUpper80}) và thanh trượt thu phóng \mintinline{text}{dataZoom}, bên dưới là bảng đối soát \mintinline{javascript}{ForecastDiffTable}.
+	\item \textbf{InventoryTab.jsx (Hình~\ref{fig:ui-tab3-inventory}):} Biểu đồ \mintinline{javascript}{DoughnutChart} tích lũy qua SSE/polling, $3$ thẻ KPI đếm mượt (\textit{Healthy}, \textit{Low Stock}, \textit{Overstock}), thanh tổng số bản ghi kèm nút \textit{Đặt lại}, \textbf{Bộ mô phỏng Rủi ro ML} (\mintinline{text}{POST /api/ml/classify-inventory} với $4$ kịch bản mẫu bao gồm hàng tồn chết $0$ cầu $30\text{d}$) và bảng \mintinline{javascript}{InventoryAlertsTable} Top $10$.
 \end{itemize}
 
-Các thành phần biểu đồ (\texttt{LineChart.jsx}, \texttt{BarChart.jsx}, \texttt{DoughnutChart.jsx}) quản lý vòng đời canvas thông qua \texttt{useRef} và \texttt{useEffect}: trước khi khởi tạo biểu đồ mới hoặc khi component bị gỡ bỏ, hàm dọn dẹp chủ động gọi \texttt{chartInstanceRef.current.destroy()} (hoặc cập nhật tại chỗ \texttt{update('none')} cho biểu đồ tròn tích lũy) để tránh lỗi rò rỉ bộ nhớ và nhấp nháy khung hình.
+Các thành phần biểu đồ trong \mintinline{text}{frontend/src/components/charts/} sử dụng thư viện \textbf{Apache ECharts 6} (\mintinline{text}{v6.1.0}) và bảng phối màu tập trung \mintinline{text}{chartTheme.js} phản ứng tức thời theo chế độ Sáng/Tối. Vòng đời canvas được quản lý bằng \mintinline{javascript}{echarts.init}, \mintinline{javascript}{setOption(..., true)} kết hợp \mintinline{javascript}{ResizeObserver} để tự động co giãn khi thu gọn thanh điều hướng và giải phóng tài nguyên (\mintinline{javascript}{dispose()}) khi tháo rời component.
 
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=0.95\linewidth]{images/tab1_eda.png}
-	\caption{Giao diện Thẻ 1 (\textbf{EDA \& Streaming}): luồng giao dịch trực tiếp và $4$ biểu đồ khám phá dữ liệu}
+	\caption{Giao diện Thẻ 1 (\textbf{EDA \& Streaming}): bộ lọc OLAP Cube, luồng giao dịch SSE và $4$ biểu đồ ECharts 6}
 	\label{fig:ui-tab1-eda}
 \end{figure}
 
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=0.95\linewidth]{images/tab2_forecast.png}
-	\caption{Giao diện Thẻ 2 (\textbf{Dự báo Nhu cầu}): biểu đồ đối chiếu SMA vs. WMA + Mùa vụ và bảng $8$ kỳ sai khác}
+	\caption{Giao diện Thẻ 2 (\textbf{Dự báo Nhu cầu}): đối chiếu SMA, WMA + Mùa vụ, \textit{Hybrid GBDT} (+$80\%$ CI) và bảng $8$ kỳ sai khác}
 	\label{fig:ui-tab2-forecast}
 \end{figure}
 
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=0.95\linewidth]{images/tab3_inventory.png}
-	\caption{Giao diện Thẻ 3 (\textbf{Tồn kho Thông minh}): biểu đồ tròn tích lũy, $3$ thẻ KPI và Top $10$ cảnh báo ưu tiên}
+	\caption{Giao diện Thẻ 3 (\textbf{Tồn kho Thông minh}): biểu đồ tròn tích lũy, $3$ thẻ KPI, Bộ mô phỏng Rủi ro ML và Top $10$ cảnh báo}
 	\label{fig:ui-tab3-inventory}
 \end{figure}
 
-\section{Đặc tả đầy đủ REST API và Xử lý lỗi tập trung}
+\section{Đặc tả đầy đủ REST/SSE API và Xử lý lỗi tập trung}
 \label{sec:ch5-api}
-Tầng giao tiếp backend tuân thủ kiến trúc REST~\cite{fielding2000rest}, toàn bộ $12$ điểm cuối được gắn dưới tiền tố \texttt{/api} trong \texttt{backend/routes/index.js} (Bảng~\ref{tab:api-spec}).
+Tầng giao tiếp backend tuân thủ kiến trúc REST~\cite{fielding2000rest} kết hợp chuẩn SSE, toàn bộ $18$ điểm cuối được gắn dưới tiền tố \mintinline{text}{/api} trong \mintinline{text}{backend/routes/index.js} (Bảng~\ref{tab:api-spec}).
 
 \begin{table}[H]
 	\centering
 	\footnotesize
-	\setlength{\tabcolsep}{4pt}
-	\begin{tabular}{c l l p{6cm}}
+	\setlength{\tabcolsep}{3.5pt}
+	\begin{tabular}{c l l p{5.5cm}}
 		\toprule
-		\textbf{Method} & \textbf{Endpoint}                 & \textbf{Controller}          & \textbf{Chức năng và dữ liệu trả về}                                                        \\
+		\textbf{Method} & \textbf{Endpoint}                        & \textbf{Controller}          & \textbf{Chức năng và dữ liệu trả về}                                                                \\
 		\midrule
-		\texttt{GET}    & \texttt{/api/health}              & \texttt{healthController}    & Trạng thái \texttt{ready}/\texttt{loading}, tổng dòng sales/inventory, \texttt{cumulative}. \\
-		\texttt{GET}    & \texttt{/api/stream/sales}        & \texttt{streamController}    & Mảng $20$ giao dịch ngẫu nhiên chưa trùng lặp trong lô.                                     \\
-		\texttt{GET}    & \texttt{/api/eda/revenue-trend}   & \texttt{edaController}       & Chuỗi doanh thu theo tháng \texttt{YYYY-MM} đã sắp xếp.                                     \\
-		\texttt{GET}    & \texttt{/api/eda/top-categories}  & \texttt{edaController}       & Top $10$ danh mục có \texttt{Qty Sold} cao nhất.                                            \\
-		\texttt{GET}    & \texttt{/api/eda/channel-split}   & \texttt{edaController}       & Doanh thu và phần trăm theo \texttt{Sales Channel}.                                         \\
-		\texttt{GET}    & \texttt{/api/eda/return-rate}     & \texttt{edaController}       & Số đơn hoàn trả, tổng đơn và tỷ lệ (\%) theo \texttt{Product Division}.                     \\
-		\texttt{GET}    & \texttt{/api/forecast/categories} & \texttt{forecastController}  & Danh sách $27$ danh mục duy nhất (có alias \texttt{/api/categories}).                       \\
-		\texttt{GET}    & \texttt{/api/forecast/stores}     & \texttt{forecastController}  & Danh sách $40$ mã cửa hàng duy nhất (có alias \texttt{/api/stores}).                        \\
-		\texttt{POST}   & \texttt{/api/forecast}            & \texttt{forecastController}  & Nhận \texttt{\{category, store, periods\}} ($4$--$24$), trả 2 chuỗi và tối đa $8$ sai khác. \\
-		\texttt{GET}    & \texttt{/api/inventory/stream}    & \texttt{inventoryController} & Cộng dồn lô $50$ bản ghi vào \texttt{\_cumulativeState} và trả tổng tích lũy.               \\
-		\texttt{GET}    & \texttt{/api/inventory/alerts}    & \texttt{inventoryController} & Trả danh sách Top $10$ cảnh báo tồn kho ưu tiên \textit{Low Stock}.                         \\
-		\texttt{POST}   & \texttt{/api/inventory/reset}     & \texttt{inventoryController} & Đặt lại bộ đếm \texttt{\_cumulativeState} về $\{0, 0, 0, 0\}$.                              \\
+		\mintinline{text}{GET}    & \mintinline{text}{/api/health}                     & \mintinline{javascript}{healthController}    & Trạng thái sẵn sàng, chế độ backend, tổng dòng và \mintinline{text}{cumulative}.                              \\
+		\mintinline{text}{GET}    & \mintinline{text}{/api/stream/sales}               & \mintinline{javascript}{streamController}    & Mảng $20$ giao dịch ngẫu nhiên chưa trùng lặp trong lô.                                             \\
+		\mintinline{text}{GET}    & \mintinline{text}{/api/stream/sales/events}        & \mintinline{javascript}{streamController}    & Luồng SSE (\mintinline{text}{event: batch}, chu kỳ $2\text{ s}$, nhịp tim $15\text{ s}$).                     \\
+		\mintinline{text}{GET}    & \mintinline{text}{/api/eda/filters}                & \mintinline{javascript}{edaController}       & Danh sách trục lọc: \mintinline{javascript}{stores}, \mintinline{text}{divisions}, \mintinline{text}{categories}, \mintinline{text}{months}.      \\
+		\mintinline{text}{GET}    & \mintinline{text}{/api/eda/revenue-trend}          & \mintinline{javascript}{edaController}       & Doanh thu tháng (lọc theo \mintinline{text}{store}, \mintinline{text}{division}, \mintinline{text}{startMonth}, \mintinline{text}{endMonth}). \\
+		\mintinline{text}{GET}    & \mintinline{text}{/api/eda/top-categories}         & \mintinline{javascript}{edaController}       & Top $10$ danh mục bán chạy (hỗ trợ lọc OLAP Cube).                                                  \\
+		\mintinline{text}{GET}    & \mintinline{text}{/api/eda/channel-split}          & \mintinline{javascript}{edaController}       & Doanh thu và phần trăm theo kênh (hỗ trợ lọc OLAP Cube).                                            \\
+		\mintinline{text}{GET}    & \mintinline{text}{/api/eda/return-rate}            & \mintinline{javascript}{edaController}       & Số đơn hoàn trả và tỷ lệ (\%) theo nhóm sản phẩm (hỗ trợ lọc Cube).                                 \\
+		\mintinline{text}{GET}    & \mintinline{text}{/api/forecast/categories}        & \mintinline{javascript}{forecastController}  & Danh sách $27$ danh mục duy nhất (kèm bí danh \mintinline{text}{/api/categories}).                            \\
+		\mintinline{text}{GET}    & \mintinline{javascript}{/api/forecast/stores}            & \mintinline{javascript}{forecastController}  & Danh sách $40$ cửa hàng duy nhất (kèm bí danh \mintinline{javascript}{/api/stores}).                                \\
+		\mintinline{text}{POST}   & \mintinline{text}{/api/forecast}                   & \mintinline{javascript}{forecastController}  & Dự báo $4$--$24$ kỳ: \textit{Normal}, \textit{Super}, \textit{ML GBDT} (+$80\%$ CI) và $8$ sai khác. \\
+		\mintinline{text}{GET}    & \mintinline{text}{/api/inventory/stream}           & \mintinline{javascript}{inventoryController} & Cộng dồn lô $50$ bản ghi vào \mintinline{javascript}{_cumulativeState} và trả tổng tích lũy.                       \\
+		\mintinline{text}{GET}    & \mintinline{text}{/api/inventory/stream/events}    & \mintinline{javascript}{inventoryController} & Luồng SSE (\mintinline{text}{event: inventory}, chu kỳ $2\text{ s}$, nhịp tim $15\text{ s}$).                 \\
+		\mintinline{text}{GET}    & \mintinline{text}{/api/inventory/alerts}           & \mintinline{javascript}{inventoryController} & Top $10$ cảnh báo tồn kho đã khử trùng ưu tiên \textit{Low Stock}.                                  \\
+		\mintinline{text}{POST}   & \mintinline{javascript}{/api/inventory/reset}            & \mintinline{javascript}{inventoryController} & Đặt lại bộ đếm \mintinline{javascript}{_cumulativeState} về $\{0, 0, 0, 0\}$.                                      \\
+		\mintinline{text}{GET}    & \mintinline{text}{/api/ml/metrics}                 & \mintinline{javascript}{mlController}        & Trả thông tin champion và bảng đối chuẩn từ \mintinline{python}{ml_predictions_cache.json}.                   \\
+		\mintinline{text}{POST}   & \mintinline{text}{/api/ml/forecast}                & \mintinline{javascript}{mlController}        & So sánh dự báo thống kê vs. \textit{Hybrid GBDT} kèm \mintinline{text}{lower80}, \mintinline{text}{upper80}.           \\
+		\mintinline{text}{POST}   & \mintinline{text}{/api/ml/classify-inventory}      & \mintinline{javascript}{mlController}        & Suy luận xác suất \textit{SMOTENC} $3$ lớp, số ngày phủ và \mintinline{text}{isDeadStockCandidate}.          \\
 		\bottomrule
 	\end{tabular}
-	\caption{Đặc tả các điểm cuối REST API của hệ thống}
+	\caption{Đặc tả $18$ điểm cuối REST/SSE API của hệ thống}
 	\label{tab:api-spec}
-
 \end{table}
 
-Trong \texttt{forecastController.js}, yêu cầu \texttt{POST /api/forecast} kiểm tra nghiêm ngặt thân yêu cầu: từ chối với mã \texttt{HTTP 400} nếu không phải đối tượng JSON thuần (\texttt{[object Object]}), \texttt{category} hoặc \texttt{store} rỗng hay vượt quá $200$ ký tự, hoặc \texttt{periods} không phải số nguyên trong đoạn $[4, 24]$. Thân yêu cầu vượt giới hạn $100\text{ KB}$ của \texttt{express.json} nhận mã \texttt{413 PAYLOAD\_TOO\_LARGE}, các tuyến không tồn tại dưới \texttt{/api/*} đi qua bộ bắt \texttt{404 NOT\_FOUND}, và mọi ngoại lệ được \texttt{errorHandler.js} chuẩn hóa theo cấu trúc \texttt{\{success: false, error: \{code, message\}\}} (chỉ kèm \texttt{stack} ở môi trường phát triển khi mã lỗi $\ge 500$).
+Trong \mintinline{javascript}{forecastController.js}, yêu cầu \mintinline{text}{POST /api/forecast} kiểm tra nghiêm ngặt thân yêu cầu: từ chối với mã \mintinline{text}{HTTP 400} nếu không phải đối tượng JSON thuần (\mintinline{text}{[object Object]}), \mintinline{text}{category} hoặc \mintinline{text}{store} rỗng hay vượt quá $200$ ký tự, hoặc \mintinline{text}{periods} không phải số nguyên trong đoạn $[4, 24]$. Thân yêu cầu vượt giới hạn $100\text{ KB}$ của \mintinline{javascript}{express.json} nhận mã \mintinline{text}{413 PAYLOAD_TOO_LARGE}, các tuyến không tồn tại dưới \mintinline{text}{/api/*} đi qua bộ bắt \mintinline{text}{404 NOT_FOUND}, và mọi ngoại lệ được \mintinline{text}{errorHandler.js} chuẩn hóa theo cấu trúc \texttt{\{success: false, error: \{code, message\}\}} (chỉ kèm \mintinline{text}{stack} ở môi trường phát triển khi mã lỗi $\ge 500$).
 
-\section{Đóng gói đa container với Docker Compose và Nginx}
+\section{Đóng gói đa container với Docker Compose và Nginx SSE Proxy}
 \label{sec:ch5-docker}
-Hệ thống triển khai hoàn chỉnh bằng một lệnh \texttt{docker compose up --build -d} với hai dịch vụ kết nối trên mạng cầu nối nội bộ \texttt{inventory-net} (Hình~\ref{fig:docker_topology}):
+Hệ thống triển khai hoàn chỉnh bằng lệnh \mintinline{bash}{docker compose up --build -d} trên mạng cầu nối nội bộ \mintinline{text}{inventory-net} với hai container chính (và tùy chọn mở rộng qua hồ sơ \mintinline{bash}{--profile pipeline}, Hình~\ref{fig:docker_topology}):
 \begin{itemize}[topsep=0pt, itemsep=1pt]
-	\item \textbf{Container backend (\texttt{bigdata\_inventory\_backend}, \texttt{Dockerfile.backend}):} Dựng từ \texttt{node:18-alpine}, chỉ cài phụ thuộc sản xuất (\texttt{npm install --production}), sao chép \texttt{backend/}, \texttt{algorithms/}, \texttt{data/} và \texttt{test\_endpoints.js}. Lệnh \texttt{HEALTHCHECK} mỗi $5$ giây truy vấn địa chỉ IPv4 \texttt{127.0.0.1:3000} tại \texttt{/api/health} thay vì \texttt{localhost} nhằm tránh lỗi \texttt{ECONNREFUSED ::1} trên IPv6 của Alpine Linux.
-	\item \textbf{Container frontend (\texttt{bigdata\_inventory\_frontend}, \texttt{Dockerfile} hai giai đoạn):} Giai đoạn $1$ dùng \texttt{node:18-alpine} chạy \texttt{npm run build} để đóng gói Vite; giai đoạn $2$ dọn thư mục Nginx nhưng giữ lại trang lỗi \texttt{50x.html}, sao chép \texttt{dist/} sang \texttt{nginx:alpine} và chỉ khởi chạy khi container backend đạt trạng thái \texttt{service\_healthy}.
+	\item \textbf{Container backend (\mintinline{text}{bigdata_inventory_backend}, \mintinline{text}{Dockerfile.backend}):} Dựng từ \mintinline{text}{node:18-alpine}, chỉ cài phụ thuộc sản xuất (\mintinline{bash}{npm install --production}), sao chép các thư mục \mintinline{text}{backend/}, \mintinline{text}{algorithms/}, \mintinline{text}{ml/artifacts/}, \mintinline{text}{scripts/}, \mintinline{text}{data/} cùng hai tệp kiểm thử \mintinline{text}{test_m1.js}, \mintinline{text}{test_endpoints.js}. Khai báo biến \mintinline{text}{DATA_BACKEND} là \mintinline{text}{memory} và \mintinline{text}{LAKEHOUSE_DIR} tại \mintinline{javascript}{/app/data/lakehouse}. Lệnh \mintinline{text}{HEALTHCHECK} mỗi $5\text{ s}$ truy vấn IPv4 qua địa chỉ \texttt{127.0.0.1:3000/\allowbreak{}api/health}.
+	\item \textbf{Container frontend (\mintinline{text}{bigdata_inventory_frontend}, \mintinline{text}{Dockerfile} hai giai đoạn):} Giai đoạn $1$ chạy \mintinline{bash}{npm run build} với Vite 5; giai đoạn $2$ đưa \mintinline{text}{dist/} sang \mintinline{text}{nginx:alpine} và chỉ khởi chạy khi container backend đạt trạng thái \mintinline{text}{service_healthy}.
+	\item \textbf{Hạ tầng đường ống tùy chọn (\mintinline{bash}{--profile pipeline}):} \mintinline{text}{docker-compose.yml} định nghĩa thêm ba dịch vụ \mintinline{text}{redpanda} (\mintinline{text}{v24.2.5}, cổng \mintinline{text}{19092}/\mintinline{text}{18081}), \mintinline{text}{redis:7-alpine} (\mintinline{text}{6379}) và \mintinline{javascript}{clickhouse:24.8-alpine} (\mintinline{text}{8123}/\mintinline{text}{9000}) cùng biến \mintinline{text}{REDIS_URL}, \mintinline{text}{CLICKHOUSE_URL} để thử nghiệm khi kích hoạt riêng.
 \end{itemize}
 
 \begin{figure}[H]
 	\centering
 	\mermaidfile[width=0.95\linewidth, keepaspectratio]{diagrams/docker_topology.mmd}
-	\caption{Kiến trúc triển khai đa container Docker Compose và mạng \texttt{inventory-net}}
+	\caption{Kiến trúc triển khai Docker Compose, Nginx SSE Proxy và tùy chọn \texttt{-{}-profile pipeline}}
 	\label{fig:docker_topology}
 \end{figure}
 
-Tệp cấu hình \texttt{nginx.conf} (Mã nguồn~\ref{lst:nginx-proxy}) bật nén \texttt{gzip} cho tài nguyên tĩnh và JSON, cấu hình định tuyến SPA (\texttt{try\_files \$uri \$uri/ /index.html}), đồng thời thiết lập thời gian chờ $90\text{ s}$ và bộ đệm $256\text{ k}$ cho tuyến ủy quyền ngược \texttt{/api/} sang \texttt{http://backend:3000/api/}.
+Tệp cấu hình \mintinline{text}{nginx.conf} (Mã nguồn~\ref{lst:nginx-proxy}) tách riêng khối định tuyến cho hai điểm cuối SSE (\mintinline{nginx}{proxy_buffering off}, \mintinline{nginx}{gzip off}, \mintinline{nginx}{chunked_transfer_encoding off} và \mintinline{nginx}{proxy_read_timeout 3600s}) nhằm tránh Nginx nén giữ gói tin sự kiện thời gian thực, trong khi giữ nén Gzip và bộ đệm $256\text{ k}$ cho các tuyến \mintinline{text}{/api/} thông thường.
 
 \begin{listing}[H]
 	\begin{minted}[fontsize=\footnotesize, linenos, breaklines]{nginx}
-location / {
-    try_files $uri $uri/ /index.html;
+location ~ ^/api/(stream/sales|inventory/stream)/events$ {
+    proxy_pass http://backend:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Connection '';
+    proxy_set_header Host $host;
+    proxy_buffering off;
+    proxy_cache off;
+    gzip off;
+    chunked_transfer_encoding off;
+    proxy_read_timeout 3600s;
 }
 
 location /api/ {
     proxy_pass http://backend:3000/api/;
     proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
     proxy_connect_timeout 90s;
     proxy_send_timeout 90s;
     proxy_read_timeout 90s;
@@ -103,6 +115,6 @@ location /api/ {
     proxy_buffers 4 256k;
 }
 \end{minted}
-	\caption{Cấu hình định tuyến SPA và Reverse Proxy trong \texttt{nginx.conf}}
+	\caption{Cấu hình Reverse Proxy chuyên biệt cho SSE và REST API trong \texttt{nginx.conf}}
 	\label{lst:nginx-proxy}
 \end{listing}
