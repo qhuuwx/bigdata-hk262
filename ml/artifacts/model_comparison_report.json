@@ -1,0 +1,164 @@
+{
+  "generated_at": "2026-11-22T23:54:15.749298+00:00",
+  "execution_time_sec": 83.22,
+  "demand_forecasting": {
+    "cv_test_samples": 4320,
+    "best_hyperparameters": {
+      "loss": "quantile",
+      "quantile": 0.42,
+      "max_depth": 4,
+      "learning_rate": 0.05,
+      "l2_regularization": 5.0,
+      "min_samples_leaf": 30
+    },
+    "champion_model": "Hybrid_GBDT_Seasonal_Ensemble",
+    "models": {
+      "Baseline_1_SMA4": {
+        "MAE": 5.464,
+        "RMSE": 9.9358,
+        "WAPE_pct": 67.29,
+        "sMAPE_pct": 89.83,
+        "R2": 0.4078,
+        "MAE_vs_SMA4_pct": 0.0,
+        "RMSE_vs_SMA4_pct": 0.0,
+        "MAE_vs_SuperWMA_pct": 0.54
+      },
+      "Baseline_2_Super_WMA_Seasonal": {
+        "MAE": 5.4938,
+        "RMSE": 9.984,
+        "WAPE_pct": 67.66,
+        "sMAPE_pct": 90.32,
+        "R2": 0.4021,
+        "MAE_vs_SMA4_pct": -0.55,
+        "RMSE_vs_SMA4_pct": -0.49,
+        "MAE_vs_SuperWMA_pct": 0.0
+      },
+      "Ridge_Autoregressive": {
+        "MAE": 4.6388,
+        "RMSE": 8.9168,
+        "WAPE_pct": 57.13,
+        "sMAPE_pct": 87.87,
+        "R2": 0.5231,
+        "MAE_vs_SMA4_pct": 15.1,
+        "RMSE_vs_SMA4_pct": 10.26,
+        "MAE_vs_SuperWMA_pct": 15.56
+      },
+      "RandomForest_Panel": {
+        "MAE": 4.5921,
+        "RMSE": 8.7133,
+        "WAPE_pct": 56.55,
+        "sMAPE_pct": 85.9,
+        "R2": 0.5446,
+        "MAE_vs_SMA4_pct": 15.96,
+        "RMSE_vs_SMA4_pct": 12.3,
+        "MAE_vs_SuperWMA_pct": 16.41
+      },
+      "HistGBDT_Tuned": {
+        "MAE": 4.54,
+        "RMSE": 8.9187,
+        "WAPE_pct": 55.91,
+        "sMAPE_pct": 84.98,
+        "R2": 0.5229,
+        "MAE_vs_SMA4_pct": 16.91,
+        "RMSE_vs_SMA4_pct": 10.24,
+        "MAE_vs_SuperWMA_pct": 17.36
+      },
+      "Hybrid_GBDT_Seasonal_Ensemble": {
+        "MAE": 4.5316,
+        "RMSE": 8.7673,
+        "WAPE_pct": 55.81,
+        "sMAPE_pct": 87.25,
+        "R2": 0.5389,
+        "MAE_vs_SMA4_pct": 17.06,
+        "RMSE_vs_SMA4_pct": 11.76,
+        "MAE_vs_SuperWMA_pct": 17.51
+      }
+    },
+    "precomputed_pairs_count": 1080
+  },
+  "inventory_risk_classification": {
+    "task": "inventory_stock_risk_3class",
+    "sample_size": 36000,
+    "class_distribution": {
+      "healthy": 17686,
+      "low": 15864,
+      "over": 2450
+    },
+    "champion_model": "SMOTENC_HistGBDT_Tuned",
+    "models": {
+      "LogisticRegression_Baseline": {
+        "Macro_PR_AUC": 0.731,
+        "LowStock_PR_AUC": 0.9484,
+        "Overstock_PR_AUC": 0.3844,
+        "Macro_ROC_AUC": 0.9083,
+        "Macro_F1": 0.6452,
+        "Weighted_F1": 0.8029,
+        "Recall_LowStock": 0.851,
+        "Precision_LowStock": 0.8758,
+        "Recall_Overstock": 0.1543
+      },
+      "RandomForest_ClassWeighted": {
+        "Macro_PR_AUC": 0.9183,
+        "LowStock_PR_AUC": 0.9845,
+        "Overstock_PR_AUC": 0.8118,
+        "Macro_ROC_AUC": 0.9759,
+        "Macro_F1": 0.7955,
+        "Weighted_F1": 0.8765,
+        "Recall_LowStock": 0.9065,
+        "Precision_LowStock": 0.9652,
+        "Recall_Overstock": 0.9376
+      },
+      "HistGBDT_ClassWeighted": {
+        "Macro_PR_AUC": 0.9466,
+        "LowStock_PR_AUC": 0.9876,
+        "Overstock_PR_AUC": 0.8812,
+        "Macro_ROC_AUC": 0.9834,
+        "Macro_F1": 0.8539,
+        "Weighted_F1": 0.9081,
+        "Recall_LowStock": 0.9282,
+        "Precision_LowStock": 0.9556,
+        "Recall_Overstock": 0.9098
+      },
+      "SMOTENC_HistGBDT_Tuned": {
+        "Macro_PR_AUC": 0.9245,
+        "LowStock_PR_AUC": 0.9876,
+        "Overstock_PR_AUC": 0.8167,
+        "Macro_ROC_AUC": 0.9803,
+        "Macro_F1": 0.858,
+        "Weighted_F1": 0.9128,
+        "Recall_LowStock": 0.9258,
+        "Precision_LowStock": 0.9567,
+        "Recall_Overstock": 0.7139
+      }
+    }
+  },
+  "return_risk_classification": {
+    "task": "transaction_return_prediction_binary",
+    "sample_size": 36000,
+    "positive_return_rate_pct": 6.03,
+    "champion_model": "SMOTENC_HistGBDT_Tuned",
+    "models": {
+      "LogisticRegression_Baseline": {
+        "PR_AUC": 0.076,
+        "ROC_AUC": 0.5758,
+        "Macro_F1": 0.471,
+        "Recall_Return": 0.3491,
+        "Precision_Return": 0.0747
+      },
+      "ADASYN_RandomForest_FoldIsolated": {
+        "PR_AUC": 0.0748,
+        "ROC_AUC": 0.5732,
+        "Macro_F1": 0.4678,
+        "Recall_Return": 0.3851,
+        "Precision_Return": 0.0769
+      },
+      "SMOTENC_HistGBDT_Tuned": {
+        "PR_AUC": 0.0752,
+        "ROC_AUC": 0.5607,
+        "Macro_F1": 0.4957,
+        "Recall_Return": 0.0138,
+        "Precision_Return": 0.1316
+      }
+    }
+  }
+}

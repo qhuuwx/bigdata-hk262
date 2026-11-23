@@ -1,0 +1,23 @@
+version: "1.0"
+pipeline: bigdata_inventory_medallion
+
+gate_1_silver:
+  min_sales_rows: 100000
+  min_inventory_rows: 200000
+  max_quarantine_ratio: 0.005
+  required_null_free_columns:
+    - transaction_date
+    - product_no
+    - store_id
+    - product_category
+  allow_negative_returns_only_when_flagged: true
+  require_scd2_active_snapshots: true
+
+gate_2_gold:
+  revenue_reconciliation_tolerance: 0.01
+  expected_categories_count: 27
+  expected_stores_count: 40
+  expected_months_count: 11
+  require_distinct_alert_pairs: true
+  max_alerts_limit: 10
+  require_low_stock_before_overstock: true

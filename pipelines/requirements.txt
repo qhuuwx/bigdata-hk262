@@ -1,0 +1,9 @@
+duckdb>=1.4.0
+pyarrow>=18.0.0
+pandas>=2.2.0
+numpy>=2.0.0
+scikit-learn>=1.6.0
+imbalanced-learn>=0.13.0
+jsonschema>=4.23.0
+pytest>=8.3.0
+pyyaml>=6.0.2

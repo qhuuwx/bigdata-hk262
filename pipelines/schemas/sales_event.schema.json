@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RetailSalesEvent",
+  "type": "object",
+  "required": [
+    "Transaction Date",
+    "Sales Type",
+    "Is Return",
+    "Product No",
+    "Product Division",
+    "Product Category",
+    "Store",
+    "Sales Channel",
+    "Qty Sold",
+    "Sales Amount",
+    "Cogs",
+    "Number of Transactions"
+  ],
+  "properties": {
+    "Transaction Date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "Sales Type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "Is Return": {
+      "type": ["integer", "string"],
+      "enum": [0, 1, "0", "1"]
+    },
+    "Reason of Return": {
+      "type": ["string", "null"]
+    },
+    "Supplier": {
+      "type": ["string", "null"]
+    },
+    "Product No": {
+      "type": "string",
+      "pattern": "^PROD-[A-Za-z0-9_-]+$"
+    },
+    "Product Description": {
+      "type": ["string", "null"]
+    },
+    "Product Division": {
+      "type": "string",
+      "minLength": 1
+    },
+    "Product Category": {
+      "type": "string",
+      "minLength": 1
+    },
+    "Product Subcategory": {
+      "type": ["string", "null"]
+    },
+    "Product Segment": {
+      "type": ["string", "null"]
+    },
+    "Store": {
+      "type": "string",
+      "pattern": "^STR-[A-Za-z0-9_-]+$"
+    },
+    "Sales Channel": {
+      "type": "string",
+      "minLength": 1
+    },
+    "Qty Sold": {
+      "type": ["number", "string"]
+    },
+    "Sales Amount": {
+      "type": ["number", "string"]
+    },
+    "Cogs": {
+      "type": ["number", "string"]
+    },
+    "Number of Transactions": {
+      "type": ["integer", "number", "string"]
+    }
+  },
+  "additionalProperties": true
+}
