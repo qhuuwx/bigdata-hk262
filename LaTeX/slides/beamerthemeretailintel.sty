@@ -1,0 +1,325 @@
+% Retail Intelligence beamer theme (CO4033 - bigdata_inventory).
+% Matches the redesigned frontend institutional design system:
+%   - 1920x1080 px 16:9 canvas, 128 px margins
+%   - #0F172A dark slate (sidebar/cover), #F8FAFC page, #FFFFFF 1px #E2E8F0 cards
+%   - Cobalt #1D4ED8, Emerald #059669, Amber #D97706, Rose #E11D48 accents
+%   - Clean footer (project title + frame number, NO presenter name)
+\mode<presentation>
+
+\RequirePackage{fontspec}
+\RequirePackage{tikz}
+\usetikzlibrary{arrows.meta}
+
+% ---------------------------------------------------------------- canvas
+\newlength\ripx
+\setlength\ripx{\dimexpr\paperwidth/1920\relax}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{headline}{}
+\setbeamertemplate{footline}{}
+\setbeamertemplate{frametitle}{}
+\setbeamersize{text margin left=0pt,text margin right=0pt}
+\usefonttheme{professionalfonts}
+
+% ---------------------------------------------------------------- fonts
+\setsansfont{BeVietnamPro}[
+	Path=fonts/, Extension=.ttf,
+	UprightFont=*-Regular, BoldFont=*-SemiBold, ItalicFont=*-Italic]
+\setmainfont{BeVietnamPro}[
+	Path=fonts/, Extension=.ttf,
+	UprightFont=*-Regular, BoldFont=*-SemiBold, ItalicFont=*-Italic]
+\newfontfamily\riXBfamily{BeVietnamPro}[
+	Path=fonts/, Extension=.ttf, UprightFont=*-ExtraBold]
+
+% ---------------------------------------------------------------- colours
+% Matched directly to frontend/src/utils/chartTheme.js & Tailwind slate tokens.
+\definecolor{riInk}{HTML}{0F172A}
+\definecolor{riInkSoft}{HTML}{1E293B}
+\definecolor{riPage}{HTML}{F8FAFC}
+\definecolor{riPaper}{HTML}{FFFFFF}
+\definecolor{riHair}{HTML}{E2E8F0}
+\definecolor{riHairDark}{HTML}{334155}
+\definecolor{riSlate}{HTML}{475569}
+\definecolor{riMuted}{HTML}{64748B}
+\definecolor{riMutedDark}{HTML}{94A3B8}
+
+\definecolor{riBlue}{HTML}{1D4ED8}
+\definecolor{riBlueMid}{HTML}{3B82F6}
+\definecolor{riBlueSoft}{HTML}{EFF6FF}
+\definecolor{riBlueBorder}{HTML}{BFDBFE}
+
+\definecolor{riGreen}{HTML}{059669}
+\definecolor{riGreenSoft}{HTML}{ECFDF5}
+\definecolor{riGreenBorder}{HTML}{A7F3D0}
+
+\definecolor{riAmber}{HTML}{D97706}
+\definecolor{riAmberSoft}{HTML}{FFFBEB}
+\definecolor{riAmberBorder}{HTML}{FDE68A}
+
+\definecolor{riRose}{HTML}{E11D48}
+\definecolor{riRoseSoft}{HTML}{FFF1F2}
+\definecolor{riRoseBorder}{HTML}{FECDD3}
+
+\definecolor{riFrameBg}{HTML}{F1F5F9}
+\definecolor{riNodeLine}{HTML}{CBD5E1}
+\definecolor{riConnector}{HTML}{64748B}
+\definecolor{riRowHl}{HTML}{F1F5F9}
+\definecolor{riFoot}{HTML}{64748B}
+\definecolor{riFootDark}{HTML}{94A3B8}
+
+\setbeamercolor{background canvas}{bg=riPage}
+\setbeamercolor{normal text}{fg=riInk}
+
+% ---------------------------------------------------------------- type
+\newcommand\riReg{\normalfont\mdseries}
+\newcommand\riSemi{\normalfont\bfseries}
+\newcommand\riXB{\riXBfamily}
+\newcommand\riFont[4]{%
+	#3\fontsize{#1\ripx}{\fpeval{#1*#2}\ripx}\selectfont
+	\if\relax\detokenize{#4}\relax\else\addfontfeature{LetterSpace=#4}\fi
+	\lineskiplimit=-\maxdimen \parindent=0pt \hyphenpenalty=10000
+	\edef\ristrut{\noexpand\leavevmode\vrule width 0pt
+		height \fpeval{#1*(#2/2+0.3675)}\ripx\space
+		depth \fpeval{#1*(#2/2-0.3675)}\ripx\relax}}
+\newcommand\ristrut{}
+
+% Type scale: 112 / 60 / 36 / 28 / 24 / 20 px
+\newcommand\fEyebrow{\riFont{22}{1.35}{\riSemi}{10}}
+\newcommand\fTitle{\riFont{58}{1.12}{\riXB}{-1.5}}
+\newcommand\fBig{\riFont{104}{1}{\riXB}{-1.7}}
+\newcommand\fNsixty{\riFont{58}{1.1}{\riXB}{-1.5}}
+\newcommand\fHthree{\riFont{34}{1.2}{\riSemi}{}}
+\newcommand\fHthreeReg{\riFont{34}{1.2}{\riReg}{}}
+\newcommand\fBody{\riFont{27}{1.35}{\riReg}{}}
+\newcommand\fBodyS{\riFont{27}{1.35}{\riSemi}{}}
+\newcommand\fSmall{\riFont{23}{1.35}{\riReg}{}}
+\newcommand\fSmallS{\riFont{23}{1.35}{\riSemi}{}}
+\newcommand\fMicro{\riFont{20}{1.3}{\riSemi}{}}
+\newcommand\fNodeT{\riFont{26}{1.3}{\riSemi}{}}
+\newcommand\fNodeS{\riFont{22}{1.3}{\riReg}{}}
+
+% Vector arrow glyphs missing from Be Vietnam Pro
+\newcommand\riRA{\tikz[baseline=0pt,x=1em,y=1em]\draw[line width=.07em,
+			-{Straight Barb[length=.22em,width=.44em]}] (.05,.3) -- (.95,.3);}
+\newcommand\riUp{\tikz[baseline=0pt,x=1em,y=1em]\fill
+	(.05,0) -- (.67,0) -- (.36,.62) -- cycle;\kern.05em}
+\newcommand\riDown{\tikz[baseline=0pt,x=1em,y=1em]\fill
+	(.05,.62) -- (.67,.62) -- (.36,0) -- cycle;\kern.05em}
+
+% ---------------------------------------------------------------- slide kinds & footer
+\colorlet{riFg}{riInk}
+\colorlet{riEyebrowC}{riBlue}
+\colorlet{riMutedC}{riMuted}
+\colorlet{riFootC}{riFoot}
+\colorlet{riBgC}{riPage}
+\newcommand\ri@kind{light}
+\newcommand\ri@draw{}
+\newif\ifri@showfooter
+\ri@showfootertrue
+
+% \rislide[light|accent|dark]{TikZ drawing}
+% Use \riNoFooter inside drawing (or before) to suppress the footer (cover/closing).
+\newcommand\riNoFooter{\global\ri@showfooterfalse}
+\newcommand\rislide[2][light]{%
+	\global\ri@showfootertrue
+	\gdef\ri@kind{#1}\gdef\ri@draw{#2}}
+
+\newcommand\ri@setkind{%
+	\def\ri@tmp{dark}\ifx\ri@kind\ri@tmp
+		\colorlet{riBgC}{riInk}\colorlet{riFg}{riPage}%
+		\colorlet{riEyebrowC}{riBlueMid}\colorlet{riMutedC}{riMutedDark}%
+		\colorlet{riFootC}{riFootDark}\fi
+	\def\ri@tmp{accent}\ifx\ri@kind\ri@tmp
+		\colorlet{riBgC}{riBlue}\colorlet{riFg}{riPaper}%
+		\colorlet{riEyebrowC}{riBlueSoft}\colorlet{riMutedC}{riBlueSoft}%
+		\colorlet{riFootC}{riBlueSoft}\fi}
+
+% Minimal institutional footer (NO presenter name): project label left, slide # right
+\newcommand\ri@footer{%
+	\ifri@showfooter
+		\fill[riHair] (128,972) rectangle (1792,973);
+		\fill[riGreen] (136,999) circle (5\ripx);
+		\riT[text=riFootC]{154}{985}{\fSmall}{Retail Intelligence · CO4033 HK261}%
+		\riT[text=riFootC,anchor=north east]{1792}{985}{\fSmall}%
+		{\insertframenumber\ / \inserttotalframenumber}%
+	\fi}
+
+\newif\ifri@notepage
+\setbeamertemplate{background}{%
+	\ifri@notepage\else
+		\begingroup\ri@setkind
+		\begin{tikzpicture}[x=\ripx,y=-\ripx,line join=round,
+				every node/.style={inner sep=0pt,outer sep=0pt,text=riFg}]
+			\useasboundingbox (0,0) rectangle (1920,1080);
+			\fill[riBgC] (0,0) rectangle (1920,1080);
+			\ri@draw
+			\ri@footer
+		\end{tikzpicture}%
+		\endgroup\fi}
+
+\setbeamertemplate{note page}{%
+	\global\ri@notepagetrue
+	\vskip 4mm
+	\hspace*{6mm}\begin{minipage}{\dimexpr\paperwidth-12mm\relax}
+		\riFont{24}{1.4}{\riSemi}{}\color{riBlue}%
+		Slide \insertframenumber\ · \insertframetitle\par
+		\vskip 2mm
+		\riFont{26}{1.45}{\riReg}{}\color{riInk}\raggedright\insertnote\par
+	\end{minipage}\vfill}
+\AddToHook{shipout/after}{\global\ri@notepagefalse}
+
+% ---------------------------------------------------------------- primitives
+\newcommand\riT[5][]{%
+	\node[anchor=north west,#1] at (#2,#3) {#4\ristrut#5\ristrut};}
+\newcommand\riTw[6][]{%
+	\node[anchor=north west,text width=\fpeval{#4}\ripx,align=flush left,#1]
+	at (#2,#3) {#5\ristrut#6\ristrut\par};}
+
+% Eyebrow + title at top-left margin (matching Header.jsx breadcrumb rhythm)
+\newcommand\riHead[2]{%
+	\riT[text=riEyebrowC]{128}{112}{\fEyebrow}{\MakeUppercase{#1}}%
+	\riT{128}{154}{\fTitle}{#2}}
+
+% \riBox[extra]{x}{y}{w}{h}{radius}{fill}{border}{border px}
+\newcommand\riBox[9][]{%
+	\ifdim#9pt=0pt
+		\fill[#7,rounded corners=#6\ripx] (#2,#3) rectangle ++(#4,#5);
+	\else
+		\filldraw[fill=#7,draw=#8,line width=#9\ripx,
+			rounded corners={(#6-#9/2)*\ripx},#1]
+		({#2+#9/2},{#3+#9/2}) rectangle ++({#4-#9},{#5-#9});
+	\fi}
+\newcommand\riCard[4]{\riBox{#1}{#2}{#3}{#4}{10}{riPaper}{riHair}{1.5}}
+\newcommand\riCardDark[4]{\riBox{#1}{#2}{#3}{#4}{10}{riInkSoft}{riHairDark}{1.5}}
+\newcommand\riCardSoft[4]{\riBox{#1}{#2}{#3}{#4}{10}{riBlueSoft}{riBlueBorder}{1.5}}
+
+% Institutional KPI card with 5px left accent rule (matching InventoryTab.jsx)
+% \riKpiCard{x}{y}{w}{h}{accentColor}{title}{value}{badgeText}{desc}
+\newcommand\riKpiCard[9]{%
+	\riBox{#1}{#2}{#3}{#4}{10}{riPaper}{riHair}{1.5}%
+	\fill[#5] (#1,{#2+12}) rectangle ({#1+5},{#2+#4-12});%
+	\riT[text=riInk]{#1+28}{#2+26}{\fBodyS}{#6}%
+	\riT[text=#5]{#1+28}{#2+82}{\fNsixty}{#7}%
+	\riTw[text=riMuted]{#1+28}{#2+174}{#3-56}{\fSmall}{#9}%
+	\node[anchor=north east,fill=#5!10!riPaper,draw=#5!35!riPaper,line width=1\ripx,
+		text=#5,inner xsep=14\ripx,inner ysep=5\ripx,rounded corners=6\ripx]
+	at ({#1+#3-24},{#2+24}) {\fMicro\ristrut#8\ristrut};%
+}
+
+% Status / scope pills
+\tikzset{
+	ri pill healthy/.style={fill=riGreenSoft,text=riGreen,draw=riGreenBorder,line width=1.2\ripx},
+	ri pill low/.style={fill=riAmberSoft,text=riAmber,draw=riAmberBorder,line width=1.2\ripx},
+	ri pill over/.style={fill=riRoseSoft,text=riRose,draw=riRoseBorder,line width=1.2\ripx},
+	ri pill blue/.style={fill=riBlueSoft,text=riBlue,draw=riBlueBorder,line width=1.2\ripx},
+	ri pill dark/.style={fill=riInk,text=riPaper,draw=riInk,line width=1.2\ripx}}
+\newcommand\riPill[5][0]{%
+	\node[anchor=north west,ri pill #4,inner xsep=16\ripx,inner ysep=6\ripx,
+		rounded corners=8\ripx,minimum width=#1\ripx]
+	at (#2,#3) {\fSmallS\ristrut#5\ristrut};}
+
+% Accent status bars for cover/closing (Cobalt, Emerald, Amber, Rose)
+\newcommand\riStatusBars[2]{%
+	\foreach \c [count=\i from 0] in {riBlueMid,riGreen,riAmber,riRose}
+	\fill[\c,rounded corners=4\ripx] ({#1+108*\i},#2) rectangle ++(92,10);}
+
+% Diagram node: \riNode{kind}{x}{y}{w}{h}{title}{subtitle}
+% kind: plain, key, ok, warn, bad, sim (dashed), gate (3 px blue border).
+\newcommand\riNode[7]{%
+	\begingroup
+	\def\ri@nb{1.8}\colorlet{ri@nf}{riPaper}\colorlet{ri@nl}{riNodeLine}%
+	\colorlet{ri@nt}{riInk}\colorlet{ri@ns}{riMuted}\def\ri@nd{}%
+	\def\ri@k{#1}%
+	\def\ri@tmp{key}\ifx\ri@tmp\ri@k
+		\colorlet{ri@nf}{riBlue}\colorlet{ri@nl}{riBlue}%
+		\colorlet{ri@nt}{riPaper}\colorlet{ri@ns}{riBlueSoft}\fi
+	\def\ri@tmp{ok}\ifx\ri@tmp\ri@k
+		\colorlet{ri@nf}{riGreenSoft}\colorlet{ri@nl}{riGreen}\fi
+	\def\ri@tmp{warn}\ifx\ri@tmp\ri@k
+		\colorlet{ri@nf}{riAmberSoft}\colorlet{ri@nl}{riAmber}\fi
+	\def\ri@tmp{bad}\ifx\ri@tmp\ri@k
+		\colorlet{ri@nf}{riRoseSoft}\colorlet{ri@nl}{riRose}\fi
+	\def\ri@tmp{sim}\ifx\ri@tmp\ri@k
+		\def\ri@nd{dash pattern=on 6\ripx off 4\ripx}\fi
+	\def\ri@tmp{gate}\ifx\ri@tmp\ri@k
+		\def\ri@nb{3}\colorlet{ri@nl}{riBlue}\fi
+	\expandafter\riBox\expandafter[\ri@nd]{#2}{#3}{#4}{#5}{10}{ri@nf}{ri@nl}{\ri@nb}%
+	\riT[text=ri@nt]{#2+\ri@nb+20}{#3+\ri@nb+14}{\fNodeT}{#6}%
+	\riTw[text=ri@ns]{#2+\ri@nb+20}{#3+\ri@nb+52}{#4-2*\ri@nb-40}{\fNodeS}{#7}%
+	\endgroup}
+
+% Connectors
+\tikzset{
+	ri conn/.style={draw=riConnector,line width=2.5\ripx,line cap=butt,
+				-{Triangle[length=0pt 5,width=0pt 5]}},
+	ri conn both/.style={ri conn,{Triangle[length=0pt 5,width=0pt 5]}-{Triangle[length=0pt 5,width=0pt 5]}},
+	ri dashed/.style={dash pattern=on 8\ripx off 5\ripx}}
+
+% Screenshot frame: \riShot{x}{y}{w}{h}{file}
+\newcommand\riShot[5]{%
+	\riBox{#1}{#2}{#3}{#4}{12}{riFrameBg}{riHair}{1.5}%
+	\node[anchor=center] at ({#1+#3/2},{#2+#4/2})
+	{\includegraphics[width=\fpeval{#3-32}\ripx,height=\fpeval{#4-32}\ripx,
+			keepaspectratio]{#5}};}
+
+% ---------------------------------------------------------------- tables
+\ExplSyntaxOn
+\seq_new:N \l__ri_colw_seq
+\seq_new:N \l__ri_cola_seq
+\seq_new:N \l__ri_cells_seq
+\fp_new:N \g__ri_ty_fp
+\tl_new:N \g__ri_tx_tl
+\tl_new:N \g__ri_tw_tl
+\tl_new:N \g__ri_tfont_tl
+\tl_new:N \g__ri_tpad_tl
+\NewDocumentCommand \riTable { m m m m m m }
+{
+	\tl_gset:Nn \g__ri_tx_tl {#1}
+	\fp_gset:Nn \g__ri_ty_fp {#2}
+	\tl_gset:Nn \g__ri_tfont_tl {#3}
+	\tl_gset:Nn \g__ri_tpad_tl {#4}
+	\seq_gset_from_clist:Nn \g__ri_colw_seq {#5}
+	\seq_gset_from_clist:Nn \g__ri_cola_seq {#6}
+	\tl_gset:Nx \g__ri_tw_tl { \fp_eval:n { \seq_use:Nn \g__ri_colw_seq {+} } }
+}
+\seq_new:N \g__ri_colw_seq
+\seq_new:N \g__ri_cola_seq
+\NewDocumentCommand \riRow { O{plain} m m }
+{
+	\str_case:nn {#1}
+	{
+		{th} { \fill[riBlueSoft] (\g__ri_tx_tl,\fp_use:N \g__ri_ty_fp)
+			rectangle ++(\g__ri_tw_tl,#2); }
+		{hl} { \fill[riRowHl] (\g__ri_tx_tl,\fp_use:N \g__ri_ty_fp)
+			rectangle ++(\g__ri_tw_tl,#2); }
+	}
+	\fill[riHair] (\g__ri_tx_tl,\fp_eval:n {\g__ri_ty_fp+#2-1})
+	rectangle ++(\g__ri_tw_tl,1.2);
+	\seq_set_split:Nnn \l__ri_cells_seq { & } {#3}
+	\fp_set:Nn \l_tmpa_fp { \g__ri_tx_tl }
+	\int_step_inline:nn { \seq_count:N \l__ri_cells_seq }
+	{
+		\tl_set:Nx \l_tmpa_tl { \seq_item:Nn \g__ri_colw_seq {##1} }
+		\tl_set:Nx \l_tmpb_tl
+		{ \str_if_eq:eeTF { \seq_item:Nn \g__ri_cola_seq {##1} } {r}
+			{ flush~right } { flush~left } }
+		\__ri_cell:eeeeee
+		{ \fp_eval:n { \l_tmpa_fp + \g__ri_tpad_tl } }
+		{ \fp_eval:n { \g__ri_ty_fp + (#2)/2 } }
+		{ \fp_eval:n { \l_tmpa_tl - 2*\g__ri_tpad_tl } }
+		{ \l_tmpb_tl }
+		{ \str_if_eq:nnTF {#1} {th} { \exp_not:N \riSemi } { } }
+		{ \seq_item:Nn \l__ri_cells_seq {##1} }
+		\fp_add:Nn \l_tmpa_fp { \l_tmpa_tl }
+	}
+	\fp_gadd:Nn \g__ri_ty_fp { #2 }
+}
+\cs_new_protected:Nn \__ri_cell:nnnnnn
+{
+	\node[anchor=west,text~width=#3\ripx,align=#4]
+	at (#1,#2) {\g__ri_tfont_tl #5 \ristrut #6 \ristrut\par};
+}
+\cs_generate_variant:Nn \__ri_cell:nnnnnn { eeeeee }
+\ExplSyntaxOff
+
+\mode<all>

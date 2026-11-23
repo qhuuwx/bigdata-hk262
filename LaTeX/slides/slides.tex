@@ -1,0 +1,622 @@
+% Retail Intelligence -- Presentation Deck for CO4033 (XeLaTeX)
+% Build: latexmk -xelatex slides.tex
+% 20 slides on a 1920x1080 canvas using \usetheme{retailintel}.
+\documentclass[aspectratio=169,12pt]{beamer}
+\usetheme{retailintel}
+% Bo chu thich de in ghi chu thuyet trinh:
+% \setbeameroption{show notes on second screen=right}
+% \setbeameroption{show only notes}
+
+\title{Retail Intelligence -- Thuyết trình CO4033}
+\author{Nhóm sinh viên CO4033}
+
+\begin{document}
+
+% ===================================================================== 1
+\begin{frame}{Retail Intelligence}
+	\rislide[dark]{\riNoFooter%
+		\riT[text=riEyebrowC]{128}{124}{\fEyebrow}%
+		{\MakeUppercase{CO4033 · Phân tích Dữ liệu lớn \& Trí tuệ Kinh Doanh · HK261}}
+		\riStatusBars{128}{324}
+		\riT{128}{364}{\fBig}{Retail Intelligence}
+		\riTw[text=riBlueSoft]{128}{500}{1400}{\fHthreeReg}%
+		{Phân tích bán lẻ thời gian thực, dự báo nhu cầu và giám sát tồn kho thông minh}
+		\riT[text=riMutedDark]{128}{710}{\fSmallS}{Nhóm sinh viên thực hiện · Lớp L01}
+		\riT{128}{752}{\fBody}{Doãn Phương Hùng Cường · 2310381}
+		\riT{128}{802}{\fBody}{Phan Quốc Hữu · 2311384}
+		\riT{128}{852}{\fBody}{Nguyễn Thị Thảo Nguyên  · 2312371}
+		\riT{128}{902}{\fBody}{Phan Ngọc Quỳnh Trang· 2313518}
+		\riT[anchor=north east]{1792}{752}{\fBodyS}{GVHD: ThS. Bùi Tiến Đức}
+		\riT[anchor=north east,text=riMutedDark]{1792}{802}{\fSmall}%
+		{Dữ liệu: Giao dịch bán lẻ \& Tồn kho (410.506 bản ghi)}
+		\riT[anchor=north east,text=riBlueMid]{1792}{852}{\fSmall}%
+		{github.com/qhuuwx/bigdata-hk262}
+	}
+	\note{%
+		Slide 1 (~20s): Chào thầy Bùi Tiến Đức và các bạn. Nhóm em trình bày đồ án môn CO4033: hệ thống Retail Intelligence — nền tảng phân tích bán lẻ thời gian thực, Medallion Lakehouse, dự báo nhu cầu kết hợp học máy và giám sát rủi ro tồn kho trên 410.506 bản ghi qua 40 cửa hàng.}
+\end{frame}
+
+% ===================================================================== 2
+\begin{frame}{Bối cảnh và sáu câu hỏi nghiệp vụ}
+	\rislide{%
+		\riHead{01 · Bối cảnh}{Bài toán bán lẻ và câu hỏi nghiệp vụ}
+		\riT[text=riBlue]{128}{264}{\fBig}{410.506}
+		\riT{128}{384}{\fBodyS}{bản ghi qua 40 cửa hàng}
+		\riTw[text=riMuted]{128}{432}{780}{\fSmall}%
+		{125.751 giao dịch bán lẻ (27 danh mục, 3 nhóm) · 284.755 bản ghi tồn kho (2.326 sản phẩm)}
+
+		\riT[text=riMuted]{1010}{264}{\fSmallS}{Ba thách thức vận hành}
+		\riPill[200]{1010}{314}{blue}{Streaming}
+		\riTw{1230}{317}{560}{\fBody}{Báo cáo tĩnh chậm phát hiện biến động \& lọc đa chiều}
+		\riPill[200]{1010}{396}{low}{Dự báo}
+		\riTw{1230}{399}{560}{\fBody}{Trung bình đơn giản bỏ qua mùa vụ và bất định nhu cầu}
+		\riPill[200]{1010}{478}{over}{Tồn kho}
+		\riTw{1230}{481}{560}{\fBody}{Thiếu ngưỡng cảnh báo gây đứt hàng và ẩn hàng tồn chết}
+
+		\riCard{128}{696}{528}{204}
+		\riCard{696}{696}{528}{204}
+		\riCard{1264}{696}{528}{204}
+		\riT[text=riBlue]{160}{728}{\fSmallS}{Q1--Q2 · EDA \& OLAP Cube}
+		\riTw{160}{774}{464}{\fBody}{Luồng SSE, xu hướng tháng, kênh \& cắt lớp theo cửa hàng ra sao?}
+		\riT[text=riAmber]{728}{728}{\fSmallS}{Q3--Q4 · Dự báo kép \& ML}
+		\riTw{728}{774}{464}{\fBody}{Thống kê khác gì mô hình Hybrid GBDT (+80\% CI) qua 4--24 kỳ?}
+		\riT[text=riGreen]{1296}{728}{\fSmallS}{Q5--Q6 · Tồn kho \& Rủi ro ML}
+		\riTw{1296}{774}{464}{\fBody}{Top 10 cảnh báo khẩn và xác suất rủi ro giả lập như thế nào?}
+	}
+	\note{%
+		Slide 2 (~45s): Chuỗi bán lẻ giày dép đa cửa hàng gặp ba vấn đề lớn: chậm phát hiện biến động, dự báo bỏ qua mùa vụ và rủi ro mất cân bằng tồn kho. Hệ thống xử lý 410.506 bản ghi để trả lời sáu câu hỏi nghiệp vụ từ Q1 tới Q6.}
+\end{frame}
+
+% ===================================================================== 3
+\begin{frame}{Người dùng, cấp quyết định và phạm vi chỉ số}
+	\rislide{%
+		\riHead{01 · Người dùng \& Phạm vi}{Quyết định hỗ trợ và phạm vi tính toán}
+		\riTable{128}{264}{\fBody}{20}{400,250,510,504}{l,l,l,l}
+		\riRow[th]{62}{Người dùng & Cấp & Quyết định hỗ trợ & Phân hệ sử dụng}
+		\riRow{66}{Ban điều hành & Chiến lược & Theo dõi doanh thu, kênh, hoàn trả & Thống kê OLAP Cube · Tồn kho}
+		\riRow{66}{Chuyên viên cung ứng & Chiến thuật & Hoạch định lượng nhập 4--24 kỳ & Dự báo ML (+80\% CI) · Sai khác}
+		\riRow{66}{Quản lý cửa hàng & Tác nghiệp & Xử lý thiếu hàng và giả lập xả tồn & Luồng SSE · Top 10 · Rủi ro ML}
+
+		\riT[text=riMuted]{128}{608}{\fSmallS}{Ba phạm vi tính toán chỉ số đồng bộ toàn hệ thống}
+		\riCard{128}{656}{512}{236}
+		\riCard{704}{656}{512}{236}
+		\riCard{1280}{656}{512}{236}
+		\draw[ri conn] (640,774) -- (704,774);
+		\draw[ri conn] (1216,774) -- (1280,774);
+		\riT[text=riBlue]{160}{688}{\fSmallS}{Phạm vi 1 · Toàn bộ lịch sử}
+		\riT{160}{734}{\fBodyS}{125.751 giao dịch (11 tháng)}
+		\riTw[text=riMuted]{160}{784}{448}{\fSmall}{Xây khối OLAP Cube (7.517 ô) và chuỗi 1.080 cặp Danh mục -- Cửa hàng}
+		\riT[text=riAmber]{736}{688}{\fSmallS}{Phạm vi 2 · Cửa sổ 30 ngày}
+		\riT{736}{734}{\fBodyS}{25/03/2026 \riRA{} 24/04/2026}
+		\riTw[text=riMuted]{736}{784}{448}{\fSmall}{9.244 giao dịch gần nhất để tính tốc độ bán bình quân ngày}
+		\riT[text=riGreen]{1312}{688}{\fSmallS}{Phạm vi 3 · Luồng SSE tích lũy}
+		\riT{1312}{734}{\fBodyS}{Đẩy sự kiện mỗi 2 giây}
+		\riTw[text=riMuted]{1312}{784}{448}{\fSmall}{Ưu tiên SSE (dự phòng polling 2s): 20 giao dịch bán \& 50 tồn kho/nhịp}
+	}
+	\note{%
+		Slide 3 (~45s): Ứng dụng hỗ trợ 3 cấp quyết định từ chiến lược đến tác nghiệp, đồng bộ trên ba phạm vi: lịch sử 11 tháng cho OLAP và dự báo, cửa sổ 30 ngày cuối cho tốc độ bán, và luồng SSE đẩy dữ liệu tích lũy mỗi 2 giây.}
+\end{frame}
+
+% ===================================================================== 4
+\begin{frame}{Dữ liệu nguồn và phát hiện kiểm toán}
+	\rislide{%
+		\riHead{02 · Khám phá dữ liệu}{Hai tập dữ liệu nguồn và phát hiện kiểm toán}
+		\riCardSoft{128}{264}{780}{202}
+		\riT[text=riBlue]{160}{292}{\fSmallS}{Tập dữ liệu Bán hàng}
+		\riT{160}{336}{\fHthree}{125.751 dòng · 17 thuộc tính}
+		\riTw[text=riSlate]{160}{396}{716}{\fSmall}{06/2025 -- 04/2026 · Doanh thu thuần \$10,48M · Sản lượng 116.995}
+
+		\riCard{128}{494}{780}{202}
+		\riT[text=riGreen]{160}{522}{\fSmallS}{Tập dữ liệu Tồn kho}
+		\riT{160}{566}{\fHthree}{284.755 dòng · 18 thuộc tính}
+		\riTw[text=riMuted]{160}{626}{716}{\fSmall}{2.326 sản phẩm · Tổng tồn 653.407 đơn vị (\$63,90M giá trị bán lẻ)}
+
+		\riCard{128}{724}{780}{172}
+		\riT[text=riInk]{160}{752}{\fBodyS}{Kiểm toán \& Hợp đồng tự động}
+		\riTw[text=riMuted]{160}{800}{716}{\fSmall}{Làm sạch toàn bộ 410.506 dòng để định chuẩn tầng Silver \& ML.}
+
+		\riT[text=riMuted]{956}{264}{\fSmallS}{Bốn phát hiện chất lượng dữ liệu}
+		\riCard{956}{310}{836}{132}
+		\riPill[170]{984}{334}{over}{100\% trống}
+		\riTw{1176}{334}{588}{\fSmall}{Trường lý do hoàn trả bỏ trống hoàn toàn; nhận diện qua cờ hoàn trả.}
+
+		\riCard{956}{460}{836}{132}
+		\riPill[170]{984}{484}{low}{Giá trị âm}
+		\riTw{1176}{484}{588}{\fSmall}{7.491 đơn hoàn trả ghi nhận số lượng và doanh thu âm (doanh số thuần).}
+
+		\riCard{956}{610}{836}{132}
+		\riPill[170]{984}{634}{blue}{Mốc giả}
+		\riTw{1176}{634}{588}{\fSmall}{22.701 dòng tồn kho (7,97\%) mang mốc hết hạn năm 9999; tồn âm tới -9.}
+
+		\riCard{956}{760}{836}{136}
+		\riPill[170]{984}{784}{healthy}{Lệch phải}
+		\riTw{1176}{780}{588}{\fSmall}{Giao dịch phần lớn nhỏ lẻ: trung vị bán = 1 (tối đa 14), trung vị tồn = 2.}
+	}
+	\note{%
+		Slide 4 (~45s): Từ kết quả kiểm toán 410.506 bản ghi, nhóm xác định bốn đặc thù dữ liệu quyết định quy tắc làm sạch tầng Silver: lý do hoàn trả trống 100\%, hoàn trả mang dấu âm, gần 8\% tồn kho dùng mốc năm 9999, và phân bố lệch phải.}
+\end{frame}
+
+% ===================================================================== 5
+\begin{frame}{Xu hướng mùa vụ và cấu trúc doanh thu}
+	\rislide{%
+		\riHead{02 · Khám phá dữ liệu}{Biến động mùa vụ theo tháng và cấu trúc doanh thu}
+		\riCard{128}{264}{1040}{646}
+		\riT{160}{292}{\fBodyS}{Doanh thu thuần 11 tháng (nghìn USD)}
+		\riT[text=riMuted]{160}{332}{\fSmall}{Hai đỉnh T08 (\$1.535K), T12 (\$1.786K) · Đáy T01 (\$565K, hoàn 9,81\%)}
+
+		\draw[riHair,line width=1\ripx] (180,840) -- (1130,840);
+		\foreach \m/\h/\val/\col [count=\i from 0] in {
+				06/149/707/riBlueMid,
+				07/181/856/riBlueMid,
+				08/324/1535/riBlue,
+				09/182/860/riBlueMid,
+				10/173/821/riBlueMid,
+				11/184/872/riBlueMid,
+				12/377/1786/riBlue,
+				01/119/565/riRose,
+				02/219/1039/riBlueMid,
+				03/197/934/riBlueMid,
+				04/107/507/riMutedDark}{%
+				\fill[\col,rounded corners=3\ripx] ({195+84*\i},{840-\h}) rectangle ++(54,\h);
+				\node[anchor=south,text=riInk] at ({222+84*\i},{836-\h}) {\fMicro\val};
+				\node[anchor=north,text=riSlate] at ({222+84*\i},852) {\fMicro\m};
+			}
+
+		\riCard{1200}{264}{592}{198}
+		\riT[text=riRose]{1232}{290}{\fSmallS}{Hoàn trả theo nhóm hàng}
+		\riT{1232}{334}{\fBody}{Femme Footwear: \textbf{7,74\%}}
+		\riT[text=riMuted]{1232}{378}{\fSmall}{Scholar: 5,93\% · Junior: 3,28\%}
+		\riT[text=riRose]{1232}{414}{\fSmall}{Đỉnh Tháng 01/2026: \textbf{9,81\%}}
+
+		\riCard{1200}{486}{592}{202}
+		\riT[text=riBlue]{1232}{512}{\fSmallS}{Tập trung danh mục (Top 10 / 27)}
+		\riT{1232}{556}{\fBody}{Chiếm \textbf{81,72\%} sản lượng bán}
+		\riTw[text=riMuted]{1232}{602}{528}{\fSmall}{Dẫn đầu: Scholar Trailblazer, Retro Legend và Femme Trailblazer.}
+
+		\riCard{1200}{712}{592}{198}
+		\riT[text=riAmber]{1232}{738}{\fSmallS}{Phân tán 40 cửa hàng (chênh 3,49x)}
+		\riT{1232}{782}{\fSmallS}{STR-1006 (\$485,6K) vs. STR-1344 (\$139,2K)}
+		\riTw[text=riMuted]{1232}{826}{528}{\fSmall}{Dự báo cần tách riêng theo từng cặp Danh mục -- Cửa hàng.}
+	}
+	\note{%
+		Slide 5 (~45s): Biểu đồ 11 tháng bộc lộ tính mùa vụ rõ rệt vào tháng 8 và tháng 12, còn tháng 1 giảm sâu kèm tỷ lệ hoàn trả 9,81\%. Chênh lệch 3,49 lần giữa các cửa hàng đòi hỏi mô hình dự báo phải học riêng cho từng cặp danh mục và cửa hàng.}
+\end{frame}
+
+% ===================================================================== 6
+\begin{frame}{Sức khỏe tồn kho và kiểm toán trôi dạt phân phối}
+	\rislide{%
+		\riHead{02 · Tồn kho \& Trôi dạt}{Phân bố sức khỏe 284.755 dòng \& Kiểm toán PSI/KS}
+		\riCardSoft{128}{264}{810}{150}
+		\riT[text=riBlue]{160}{290}{\fSmallS}{Cơ cấu trạng thái bán gốc (284.755 bản ghi)}
+		\riTw{160}{334}{746}{\fSmall}{Nguyên giá: \textbf{91,97\%} · Giảm giá T1: \textbf{4,25\%} · T2: \textbf{2,44\%} · Thanh lý: \textbf{1,33\%}}
+
+		\riCard{982}{264}{810}{150}
+		\riT[text=riGreen]{1014}{290}{\fSmallS}{Kiểm toán trôi dạt PSI/KS ($\le$ 01/2026 vs. $\ge$ 02/2026)}
+		\riTw{1014}{334}{746}{\fSmall}{Số lượng PSI \textbf{0,0003} · Doanh thu PSI \textbf{0,0184} · Giá vốn PSI \textbf{0,0489} (đều $< 0{,}2$, ổn định)}
+
+		\riT[text=riMuted]{128}{446}{\fSmallS}{Phân loại theo số ngày bao phủ tốc độ tiêu thụ 30 ngày gần nhất}
+		\riKpiCard{128}{492}{528}{346}{riGreen}{An toàn (Healthy)}{49,33\%}{140.479 dòng}%
+		{\textbf{23,61\%} đủ bán 14--60 ngày · \textbf{25,72\%} chưa có đơn bán trong 30 ngày gần nhất.}
+
+		\riKpiCard{696}{492}{528}{346}{riAmber}{Thiếu hụt (Low)}{43,98\%}{125.240 dòng}%
+		{Độ bao phủ dưới 14 ngày bán; nguy cơ đứt hàng xuất hiện ở nhiều mã bán chạy.}
+
+		\riKpiCard{1264}{492}{528}{346}{riRose}{Dư thừa (Over)}{6,69\%}{19.036 dòng}%
+		{Tồn kho vượt ngưỡng 60 ngày tiêu thụ; mất cân bằng lớp thiểu số rõ rệt.}
+	}
+	\note{%
+		Slide 6 (~50s): Bên cạnh 43,98\% mã có nguy cơ đứt hàng và 6,69\% lớp thiểu số dư thừa, kiểm toán trôi dạt PSI giữa 8 tháng đầu và 3 tháng cuối cho giá trị dưới 0,05 trên mọi biến cốt lõi — khẳng định phân phối đủ ổn định để huấn luyện mô hình ML.}
+\end{frame}
+
+% ===================================================================== 7
+\begin{frame}{Kiến trúc kép sạch và giao diện ECharts 6}
+	\rislide{%
+		\riHead{03 · Kiến trúc}{Kiến trúc Repository kép \& ECharts 6}
+		\begin{scope}[shift={(128,268)}]
+			\fill[riFrameBg,rounded corners=14\ripx] (0,0) rectangle ++(1664,250);
+			\fill[riFrameBg,rounded corners=14\ripx] (0,278) rectangle ++(1664,210);
+			\riT[text=riEyebrowC]{32}{16}{\fEyebrow}{\MakeUppercase{Máy chủ Node.js Express (Clean Architecture + Repository Pattern)}}
+			\riT[text=riEyebrowC]{32}{294}{\fEyebrow}{\MakeUppercase{Giao diện trình bày \& Trải nghiệm (React 18 SPA · Apache ECharts 6)}}
+
+			\riNode{plain}{32}{64}{320}{150}{Nguồn Kép}{RAM CSV hoặc Lakehouse}
+			\riNode{key}{440}{64}{360}{150}{Kho Dữ liệu}{2,5s RAM | 16 ms Gold}
+			\riNode{plain}{888}{64}{360}{150}{6 Dịch vụ + ML}{OLAP Cube · Dự báo · Rủi ro}
+			\riNode{gate}{1336}{64}{296}{150}{18 API REST/SSE}{Bảo vệ 503 \& Lỗi}
+
+			\riNode{plain}{32}{342}{768}{120}{3 Thẻ phân tích ECharts 6}{OLAP Cube · Dự báo (+80\% CI) · Mô phỏng rủi ro ML}
+			\riNode{ok}{888}{342}{360}{120}{Ngữ cảnh \& UX}{Sáng/Tối · URL · Cmd+K}
+
+			\draw[ri conn] (352,139) -- (440,139);
+			\draw[ri conn] (800,139) -- (888,139);
+			\draw[ri conn] (1248,139) -- (1336,139);
+			\draw[ri conn both] (800,402) -- (888,402);
+			\draw[ri conn both] (1484,214) |- (1248,402);
+			\riT[text=riMuted]{1292}{364}{\fSmall}{REST + SSE}
+		\end{scope}
+
+		\riCard{128}{782}{528}{140}
+		\riT[text=riBlue]{156}{804}{\fBodyS}{Khởi tạo hai chế độ}
+		\riTw[text=riMuted]{156}{848}{472}{\fSmall}{Chuyển đổi tức thời giữa nạp RAM và gói Gold qua mẫu Repository.}
+
+		\riCard{696}{782}{528}{140}
+		\riT[text=riGreen]{724}{804}{\fBodyS}{Nạp CSV không nghẽn}
+		\riTw[text=riMuted]{724}{848}{472}{\fSmall}{Nhường CPU định kỳ mỗi 30.000 dòng để API sức khỏe luôn phản hồi.}
+
+		\riCard{1264}{782}{528}{140}
+		\riT[text=riInk]{1292}{804}{\fBodyS}{Năng suất \& Nhất quán}
+		\riTw[text=riMuted]{1292}{848}{472}{\fSmall}{Bảng lệnh Cmd+K, chủ đề Sáng/Tối chống chớp khung hình và đồng bộ URL.}
+	}
+	\note{%
+		Slide 7 (~50s): Máy chủ nâng cấp lên mẫu Repository hỗ trợ hai nguồn dữ liệu: nạp luồng CSV vào RAM trong 2,5 giây (có nhường CPU mỗi 30 nghìn dòng) hoặc nạp gói Gold Lakehouse chỉ 16 mili giây. Phía frontend chuyển sang Apache ECharts 6 cùng giao diện Sáng/Tối và bảng lệnh Cmd+K.}
+\end{frame}
+
+% ===================================================================== 8
+\begin{frame}{Kiến trúc Medallion Lakehouse và cổng chất lượng}
+	\rislide{%
+		\riHead{03 · Medallion Lakehouse}{Đường ống DuckDB Bronze--Silver--Gold \& Dagster}
+		\riNode{plain}{128}{276}{360}{158}{1. Tầng Bronze}{Parquet ZSTD · SHA-256 · Cách ly lỗi DLQ}
+		\riNode{plain}{524}{276}{380}{158}{2. Tầng Silver}{SCD Type 2 · Chuẩn hóa 22.701 mốc giả}
+		\riNode{gate}{940}{276}{390}{158}{3. Cổng chất lượng}{Gate 1 \& Gate 2 đạt 8/8 hợp đồng}
+		\riNode{key}{1366}{276}{426}{158}{4. Tầng Gold DuckDB}{Lược đồ Sao · Gói phục vụ 16 ms}
+		\draw[ri conn] (488,355) -- (524,355);
+		\draw[ri conn] (904,355) -- (940,355);
+		\draw[ri conn] (1330,355) -- (1366,355);
+
+		\riKpiCard{128}{488}{528}{386}{riBlue}{Khởi tạo Lakehouse}{16 ms}{Gấp 157x}%
+		{Nạp thẳng gói tổng hợp thay cho 2.516 ms phân tích CSV trên RAM; đối soát doanh thu Silver--Gold sai lệch bằng 0,00.}
+
+		\riKpiCard{696}{488}{528}{386}{riGreen}{Hợp đồng dữ liệu}{8 / 8 Đạt}{0\% Lỗi DLQ}%
+		{Đảm bảo sàn 125.751 bán / 284.755 tồn, không khuyết khóa chính, đủ 1.080 cặp dự báo và 10/10 cảnh báo ưu tiên.}
+
+		\riKpiCard{1264}{488}{528}{386}{riAmber}{Khối OLAP Cube}{7.517 ô}{Điều phối Dagster}%
+		{Tiền tổng hợp theo Cửa hàng, Nhóm hàng và khoảng tháng trong DuckDB, phục vụ truy vấn cắt lớp tức thời.}
+	}
+	\note{%
+		Slide 8 (~55s): Đường ống ngoại tuyến xây dựng trên DuckDB và Parquet theo ba tầng Medallion dưới sự điều phối của Dagster. Toàn bộ dữ liệu phải vượt qua 8/8 cổng chất lượng trước khi kết xuất ra khối Cube 7.517 ô và gói phục vụ 16 mili giây, nhanh gấp 157 lần đọc CSV.}
+\end{frame}
+
+% ===================================================================== 9
+\begin{frame}{Đặc tả 18 điểm cuối REST/SSE API và an toàn}
+	\rislide{%
+		\riHead{03 · Giao tiếp API}{18 điểm cuối REST/SSE \& Kiểm soát an toàn tầng biên}
+		\riTable{128}{264}{\fSmall}{16}{350,110,600}{l,r,l}
+		\riRow[th]{58}{Nhóm dịch vụ & Tuyến & Vai trò phục vụ giao diện}
+		\riRow{66}{Giám sát sức khỏe & 1 & Báo trạng thái sẵn sàng, chế độ backend \& tổng dòng}
+		\riRow{66}{EDA \& Luồng SSE & 7 & Luồng bán SSE + polling; danh mục trục lọc \& 4 biểu đồ cắt lớp}
+		\riRow{66}{Dự báo Nhu cầu & 3 & Cấp 27 danh mục, 40 cửa hàng \& chạy song song 3 mô hình}
+		\riRow{66}{Tồn kho \& Luồng SSE & 4 & Cộng dồn lô 50 qua SSE/polling, Top 10 ưu tiên \& reset}
+		\riRow[hl]{68}{\textbf{Học máy (ML Endpoints)} & \textbf{3} & \textbf{Trả benchmark mô hình, dự báo 80\% CI \& mô phỏng rủi ro}}
+
+		\riCard{1228}{264}{564}{192}
+		\riT[text=riBlue]{1256}{290}{\fBodyS}{Truyền luồng SSE bền vững}
+		\riTw[text=riMuted]{1256}{336}{508}{\fSmall}{Ưu tiên EventSource đẩy sự kiện 2 giây (nhịp tim 15s); tự chuyển polling nếu gặp $\ge 2$ lỗi.}
+
+		\riCard{1228}{480}{564}{192}
+		\riT[text=riAmber]{1256}{506}{\fBodyS}{Bộ nhớ đệm \& Sẵn sàng 503}
+		\riTw[text=riMuted]{1256}{552}{508}{\fSmall}{Chặn truy vấn sớm bằng mã 503 khi đang nạp; cache LRU giữ trần 1.500 tổ hợp dự báo.}
+
+		\riCard{1228}{696}{564}{196}
+		\riT[text=riRose]{1256}{722}{\fBodyS}{Phòng thủ đầu vào \& Tắt sạch}
+		\riTw[text=riMuted]{1256}{768}{508}{\fSmall}{Giới hạn gói tin 100 KB, kiểm miền 4--24 kỳ, ẩn vết lỗi nội bộ và đóng kết nối sạch.}
+	}
+	\note{%
+		Slide 9 (~45s): Tập API mở rộng lên 18 điểm cuối thuộc năm nhóm, bổ sung hai luồng SSE đẩy sự kiện thời gian thực, trục lọc OLAP Cube và ba điểm cuối học máy. Mọi tuyến đều đi qua cổng sẵn sàng 503 và cơ chế phòng thủ đầu vào.}
+\end{frame}
+
+% ===================================================================== 10
+\begin{frame}{Phân hệ 1: EDA Cube đa chiều và luồng SSE}
+	\rislide{%
+		\riHead{04 · Phân hệ 1}{EDA \& Streaming: Luồng SSE 2s, OLAP Cube \& ECharts 6}
+		\riShot{128}{260}{1080}{656}{images/tab1_eda.png}
+
+		\riCard{1244}{260}{548}{148}
+		\riT[text=riBlue]{1272}{284}{\fBodyS}{Luồng SSE 20 dòng / 2 giây}
+		\riTw[text=riMuted]{1272}{328}{492}{\fSmall}{Nhận lô không trùng qua kết nối bền vững, tự dự phòng polling khi rớt mạng.}
+
+		\riCard{1244}{428}{548}{148}
+		\riT[text=riGreen]{1272}{452}{\fBodyS}{Thanh lọc OLAP Cube 4 chiều}
+		\riTw[text=riMuted]{1272}{496}{492}{\fSmall}{Cắt lớp tức thời theo Cửa hàng, Nhóm hàng và khoảng Tháng bắt đầu -- kết thúc.}
+
+		\riCard{1244}{596}{548}{148}
+		\riT[text=riAmber]{1272}{620}{\fBodyS}{4 biểu đồ Apache ECharts 6}
+		\riTw[text=riMuted]{1272}{664}{492}{\fSmall}{Tự động co giãn theo khung hình, đồng bộ màu theo chủ đề Sáng/Tối.}
+
+		\riCardSoft{1244}{764}{548}{152}
+		\riT[text=riBlue]{1272}{788}{\fBodyS}{Vận hành \& Phím tắt Cmd+K}
+		\riTw[text=riSlate]{1272}{832}{492}{\fSmall}{Hỗ trợ tạm dừng, xóa bảng 100 dòng và nhảy nhanh đến danh mục bất kỳ.}
+	}
+	\note{%
+		Slide 10 (~50s): Giao diện Thẻ 1 mới dùng Apache ECharts 6 tích hợp thanh cắt lớp đa chiều trên 7.517 ô Cube ở chính giữa, phía trên là luồng giao dịch SSE có dự phòng polling tự động, cùng bảng lệnh nhanh Cmd+K ở góc trên.}
+\end{frame}
+
+% ===================================================================== 11
+\begin{frame}{Phân hệ 2: Ba phương pháp dự báo nhu cầu}
+	\rislide{%
+		\riHead{04 · Phân hệ 2}{Thống kê cổ điển vs. Học máy Hybrid GBDT (+80\% CI)}
+		\riCard{128}{264}{528}{386}
+		\riPill[200]{160}{294}{blue}{Normal · SMA}
+		\riT{160}{362}{\fBodyS}{Trung bình trượt đều}
+		\riTw[text=riMuted]{160}{412}{464}{\fSmall}{Cửa sổ $N=4$ kỳ gần nhất. Ổn định trước nhiễu nhưng phản ứng chậm khi đổi mùa.}
+		\riT[text=riBlue]{160}{580}{\fBodyS}{MAE ngoài mẫu: 5,4640}
+
+		\riCard{696}{264}{528}{386}
+		\riPill[220]{728}{294}{low}{Super · WMA + Mùa vụ}
+		\riT{728}{362}{\fBodyS}{Trọng số \& Hệ số tháng}
+		\riTw[text=riMuted]{728}{412}{464}{\fSmall}{Trọng số $[1,2,3,4]$ nhân tỷ số mùa vụ tháng. Bắt đỉnh tốt nhưng dễ vọt quá mức.}
+		\riT[text=riAmber]{728}{580}{\fBodyS}{MAE ngoài mẫu: 5,4938}
+
+		\riCardSoft{1264}{264}{528}{386}
+		\riPill[220]{1296}{294}{healthy}{ML · Hybrid GBDT}
+		\riT{1296}{362}{\fBodyS}{Phối hợp đa mô hình}
+		\riTw[text=riSlate]{1296}{412}{464}{\fSmall}{45\% HistGBDT phân vị ($q=0{,}42$) + 35\% Random Forest + 20\% Ridge giữ xu hướng.}
+		\riT[text=riGreen]{1296}{580}{\fBodyS}{MAE ngoài mẫu: 4,5316}
+
+		\riCard{128}{682}{1664}{222}
+		\riT[text=riInk]{160}{712}{\fBodyS}{Kỹ thuật đặc trưng \& Hiệu chuẩn khoảng tin cậy 80\%}
+		\riTw[text=riMuted]{160}{762}{1600}{\fSmall}{%
+			\textbf{1. Đặc trưng nhân quả:} Tổng hợp bảng 1.080 $\times$ 11 tháng kèm 15 biến trễ/trượt nhân quả; kẹp đột biến lễ hội chỉ trên nếp huấn luyện.\\
+			\textbf{2. Dải bất định 80\%:} Hiệu chuẩn từ cặp phân vị phần dư ngoài mẫu ($q_{10} = -7{,}50,\; q_{90} = +7{,}61$) và mở rộng dần qua 24 kỳ dự báo.}
+	}
+	\note{%
+		Slide 11 (~55s): Bên cạnh hai mô hình nền SMA và Super WMA, nhóm huấn luyện mô hình học máy toàn cục kết hợp HistGBDT hàm mất mát phân vị, Random Forest và Ridge. Phần dư ngoài mẫu giúp hiệu chuẩn khoảng tin cậy 80\% trực quan cho kế hoạch dự phòng tồn kho.}
+\end{frame}
+
+% ===================================================================== 12
+\begin{frame}{Đối chuẩn 6 mô hình dự báo nhu cầu}
+	\rislide{%
+		\riHead{04 · Học máy Dự báo}{Kiểm chứng mở rộng trên 4.320 dự báo ngoài mẫu}
+		\riTable{128}{264}{\fSmall}{16}{430,130,130,140,170}{l,r,r,r,r}
+		\riRow[th]{58}{Mô hình (Cửa sổ mở rộng t=7..10) & MAE & RMSE & WAPE & vs. SMA-4}
+		\riRow{66}{Baseline 1 · SMA-4 cổ điển & 5,4640 & 9,9358 & 67,29\% & 0,00\%}
+		\riRow{66}{Baseline 2 · Super WMA + Mùa vụ & 5,4938 & 9,9840 & 67,66\% & -0,55\%}
+		\riRow{66}{Hồi quy Ridge (Điều chuẩn L2) & 4,6388 & 8,9168 & 57,13\% & +15,10\%}
+		\riRow{66}{Random Forest (80 cây bảng) & 4,5921 & \textbf{8,7133} & 56,55\% & +15,96\%}
+		\riRow{66}{HistGBDT phân vị (q = 0,42) & 4,5400 & 8,9187 & 55,91\% & +16,91\%}
+		\riRow[hl]{70}{\textbf{Hybrid GBDT Ensemble} & \textbf{4,5316} & 8,7673 & \textbf{55,81\%} & \textbf{+17,06\%}}
+
+		\riKpiCard{1168}{264}{624}{240}{riGreen}{Giảm sai số MAE}{17,06\%}{Quán quân}%
+		{Hơn SMA-4 17,06\% và Super-WMA \textbf{17,51\%}; WAPE giảm từ 67,29\% còn 55,81\%.}
+
+		\riCard{1168}{528}{624}{174}
+		\riT[text=riBlue]{1196}{554}{\fBodyS}{Kiểm chứng không rò rỉ tương lai}
+		\riTw[text=riMuted]{1196}{600}{568}{\fSmall}{Đánh giá trượt tuần tự qua 4 tháng cuối trên đủ 1.080 cặp Cửa hàng -- Danh mục.}
+
+		\riCard{1168}{726}{624}{174}
+		\riT[text=riAmber]{1196}{752}{\fBodyS}{Phục vụ tốc độ O(1)}
+		\riTw[text=riMuted]{1196}{798}{568}{\fSmall}{Kết xuất sẵn quỹ đạo 24 kỳ kèm biên 80\% giúp backend trả lời tức thời.}
+	}
+	\note{%
+		Slide 12 (~50s): Trên 4.320 điểm kiểm tra ngoài mẫu, cả bốn mô hình học máy đều vượt xa hai thuật toán nền. Mô hình phối hợp Hybrid đạt kết quả tốt nhất: giảm 17,06\% sai số tuyệt đối trung bình so với SMA-4 và giảm WAPE hơn 11 điểm phần trăm.}
+\end{frame}
+
+% ===================================================================== 13
+\begin{frame}{Kết quả dự báo thực nghiệm trên giao diện}
+	\rislide{%
+		\riHead{04 · Phân hệ 2}{Giao diện Dự báo Nhu cầu, Dải 80\% CI \& Đối chuẩn trực tiếp}
+		\riShot{128}{260}{1080}{656}{images/tab2_forecast.png}
+
+		\riCard{1244}{260}{548}{210}
+		\riT[text=riAmber]{1272}{288}{\fSmallS}{Femme Boot Collection @ STR-1006}
+		\riT{1272}{330}{\fBodyS}{Super: 53,28 vs. ML: 4,58}
+		\riTw[text=riMuted]{1272}{384}{492}{\fSmall}{WMA mùa vụ bắt đỉnh T+2 (+439\%); Hybrid GBDT giữ đường dự báo mượt kèm biên 80\% tới 13,15.}
+
+		\riCard{1244}{490}{548}{206}
+		\riT[text=riBlue]{1272}{518}{\fSmallS}{Scholar Trailblazer @ STR-1006}
+		\riT{1272}{560}{\fBodyS}{Phẳng vs. Biến động mùa}
+		\riTw[text=riMuted]{1272}{614}{492}{\fSmall}{Bảng đối soát tự lọc tối đa 8 kỳ chênh lệch giúp chuyên viên cân nhắc hai kịch bản.}
+
+		\riCardSoft{1244}{716}{548}{200}
+		\riT[text=riBlue]{1272}{744}{\fBodyS}{Tương tác ECharts 6}
+		\riTw[text=riSlate]{1272}{790}{492}{\fSmall}{Dải bất định 80\% tô mờ, thanh thu phóng dataZoom và bảng đối chuẩn ngay trên giao diện.}
+	}
+	\note{%
+		Slide 13 (~45s): Trên giao diện Thẻ 2 mới, đường Hybrid GBDT màu tím đi kèm vùng tin cậy 80\% tô mờ giúp người lập kế hoạch nhìn thấy đồng thời kỳ vọng trung tâm, đỉnh mùa vụ theo hệ số tỷ lệ và biên rủi ro nhu cầu.}
+\end{frame}
+
+% ===================================================================== 14
+\begin{frame}{Phân hệ 3: Phân loại tồn kho và cảnh báo Top 10}
+	\rislide{%
+		\riHead{04 · Phân hệ 3}{Quy tắc phân loại tồn kho \& Cơ chế tích lũy SSE}
+		\riKpiCard{128}{264}{528}{306}{riGreen}{An toàn (Healthy)}{>= 14 ngày}{Cover 14--60d}%
+		{Hoặc sản phẩm chưa phát sinh giao dịch trong 30 ngày gần nhất.}
+
+		\riKpiCard{696}{264}{528}{306}{riAmber}{Thiếu hụt (Low)}{< 14 ngày}{Khẩn cấp}%
+		{Tồn kho không đủ bán 2 tuần; cần ưu tiên đặt hàng bổ sung ngay.}
+
+		\riKpiCard{1264}{264}{528}{306}{riRose}{Dư thừa (Overstock)}{>= 60 ngày}{Chú ý}%
+		{Lượng tồn vượt 2 tháng tiêu thụ; cần khuyến mãi giải phóng vốn.}
+
+		\riCard{128}{608}{810}{292}
+		\riT[text=riBlue]{160}{638}{\fBodyS}{Cộng dồn nguyên tử qua SSE / Polling (50 / 2s)}
+		\riTw[text=riMuted]{160}{688}{746}{\fSmall}{Mỗi nhịp 2 giây phân loại lô 50 bản ghi và cộng dồn liên tục trên bộ nhớ máy chủ.\\Số liệu bảo toàn khi chuyển thẻ hay tải lại trang, chỉ về 0 khi đặt lại.}
+
+		\riCard{982}{608}{810}{292}
+		\riT[text=riRose]{1014}{638}{\fBodyS}{Chiến lược trích xuất Top 10 Cảnh báo}
+		\riTw[text=riMuted]{1014}{688}{746}{\fSmall}{Khử trùng lặp theo cặp Danh mục -- Cửa hàng, giữ tối đa 3 điểm Dư thừa và luôn xếp nhóm Thiếu hụt lên đầu.\\Kết quả thực tế gồm \textbf{7 điểm Khẩn cấp} và \textbf{3 điểm Chú ý}.}
+	}
+	\note{%
+		Slide 14 (~45s): Thuật toán chia tồn kho thành ba ngưỡng theo số ngày bao phủ nhu cầu. Lô 50 dòng được phát qua SSE và cộng dồn nguyên tử trên RAM máy chủ, còn danh sách Top 10 luôn ưu tiên đưa 7 điểm thiếu hàng lên đầu.}
+\end{frame}
+
+% ===================================================================== 15
+\begin{frame}{Học máy phân loại rủi ro mất cân bằng \& Hàng tồn chết}
+	\rislide{%
+		\riHead{04 · Học máy Phân loại}{Cân bằng cô lập (SMOTE-NC / ADASYN) \& Tồn chết}
+		\riCard{128}{264}{810}{638}
+		\riPill[280]{160}{294}{healthy}{Rủi ro Tồn kho · 3 lớp}
+		\riT{160}{356}{\fHthree}{Macro-F1 0,8580 · PR-AUC 0,9245}
+		\riTw[text=riMuted]{160}{414}{746}{\fSmall}{%
+			\textbf{Cân bằng cô lập:} Áp dụng SMOTE-NC chỉ trong từng nếp học trên 36.000 mẫu (lớp Dư thừa chỉ 6,69\%), đạt ROC-AUC \textbf{0,9803} và Weighted-F1 \textbf{0,9128}.\\[10pt]
+			\textbf{Kiểm định không rò rỉ (TimeSeriesSplit):} Khi loại bỏ hoàn toàn biến số lượng tồn hiện tại để đánh giá bối cảnh thuần túy trên 3 nếp trượt thời gian (9.000 mẫu/nếp nguyên bản), Macro-F1 đạt \textbf{0,4705}.}
+
+		\riCard{982}{264}{810}{638}
+		\riPill[240]{1014}{294}{over}{Hoàn trả \& ML}
+		\riT{1014}{356}{\fHthree}{Hoàn trả PR-AUC 0,0752--0,0760}
+		\riTw[text=riMuted]{1014}{414}{746}{\fSmall}{%
+			\textbf{Giới hạn dữ liệu:} Do tỷ lệ dương thấp (5,96\%), thiếu kích cỡ và 100\% trống lý do trả, ADASYN \& SMOTE-NC cô lập chỉ đạt PR-AUC quanh mức nền.\\[10pt]
+			\textbf{Mô phỏng xác suất \& Hàng tồn chết:} Dịch vụ suy luận tính xác suất trơn 3 lớp quanh ngưỡng 14/60 ngày và \textbf{bật cờ hàng tồn chết} riêng cho 25,72\% nhóm 0 cầu 30 ngày.}
+	}
+	\note{%
+		Slide 15 (~55s): Nhóm áp dụng SMOTE-NC và ADASYN cô lập tuyệt đối trong nếp huấn luyện để không rò rỉ dữ liệu kiểm chứng. Ngoài điểm Macro-F1 0,8580 trên bộ đặc trưng đầy đủ, nhóm thẳng thắn đo cả chế độ không dùng biến tồn hiện tại và bổ sung cờ hàng tồn chết cho bộ mô phỏng rủi ro.}
+\end{frame}
+
+% ===================================================================== 16
+\begin{frame}{Giao diện Tồn kho Thông minh và bộ mô phỏng ML}
+	\rislide{%
+		\riHead{04 · Phân hệ 3}{Vành khuyên SSE, Bộ mô phỏng Rủi ro ML \& Top 10 Cảnh báo}
+		\riShot{128}{260}{1080}{656}{images/tab3_inventory.png}
+
+		\riCard{1244}{260}{548}{198}
+		\riT[text=riGreen]{1272}{288}{\fBodyS}{Biểu đồ ECharts 6 \& KPI mượt}
+		\riTw[text=riMuted]{1272}{334}{492}{\fSmall}{Đếm số chuyển tiếp mượt theo luồng SSE và đồng bộ giao diện Sáng/Tối.}
+
+		\riCardSoft{1244}{478}{548}{204}
+		\riT[text=riBlue]{1272}{506}{\fBodyS}{Bộ mô phỏng Rủi ro ML}
+		\riTw[text=riSlate]{1272}{552}{492}{\fSmall}{Thử nghiệm tức thời 4 kịch bản mẫu, hiển thị xác suất 3 lớp và cờ hàng tồn chết.}
+
+		\riCard{1244}{702}{548}{214}
+		\riT[text=riRose]{1272}{730}{\fBodyS}{Bảng Top 10 cảnh báo ưu tiên}
+		\riTw[text=riMuted]{1272}{776}{492}{\fSmall}{Khử trùng lặp cặp Danh mục -- Cửa hàng, xếp 7 điểm Thiếu hụt trước 3 điểm Dư thừa.}
+	}
+	\note{%
+		Slide 16 (~45s): Thẻ 3 nay tích hợp thêm Bộ mô phỏng Rủi ro ML ngay giữa giao diện với bốn nút kịch bản nhanh — đặc biệt giúp kiểm tra ngay trường hợp hàng tồn chết có cầu 30 ngày bằng 0.}
+\end{frame}
+
+% ===================================================================== 17
+\begin{frame}{Kiến trúc triển khai Docker và Nginx SSE Proxy}
+	\rislide{%
+		\riHead{05 · Hạ tầng triển khai}{Đóng gói đa dịch vụ, Proxy SSE \& Tùy chọn Pipeline}
+		\riNode{plain}{128}{276}{270}{174}{Người dùng}{Trình duyệt web}
+		\riNode{key}{446}{276}{420}{174}{Web Proxy (Nginx)}{Cổng 3001 · Gzip \& SSE}
+		\riNode{gate}{914}{276}{470}{174}{Máy chủ API (Node.js)}{Cổng 3000 · RAM/Lakehouse}
+		\riNode{ok}{1432}{276}{360}{174}{Kiểm tra sức khỏe}{Tự giám sát mỗi 5 giây}
+		\draw[ri conn] (398,363) -- (446,363);
+		\draw[ri conn] (866,363) -- (914,363);
+		\draw[ri conn] (1384,363) -- (1432,363);
+
+		\riCardSoft{128}{482}{1664}{88}
+		\riT[text=riBlue]{160}{508}{\fSmallS}{Hồ sơ mở rộng tùy chọn (-{}-profile pipeline):}
+		\riT[text=riSlate]{680}{508}{\fSmall}{Cấu hình sẵn \textbf{Redpanda} (:19092), \textbf{Redis 7} (:6379) và \textbf{ClickHouse} (:8123) phục vụ thử nghiệm phân tán.}
+
+		\riCard{128}{602}{528}{298}
+		\riT[text=riBlue]{160}{632}{\fBodyS}{Đóng gói đa giai đoạn}
+		\riTw[text=riMuted]{160}{682}{464}{\fSmall}{Biên dịch giao diện Vite siêu gọn kèm sẵn mô hình ML và kho Lakehouse trong backend.}
+
+		\riCard{696}{602}{528}{298}
+		\riT[text=riInk]{728}{632}{\fBodyS}{Proxy SSE chuyên biệt}
+		\riTw[text=riMuted]{728}{682}{464}{\fSmall}{Tắt đệm và nén riêng cho các tuyến SSE với thời gian giữ kết nối 3.600 giây.}
+
+		\riCard{1264}{602}{528}{298}
+		\riT[text=riGreen]{1296}{632}{\fBodyS}{Điều phối sức khỏe}
+		\riTw[text=riMuted]{1296}{682}{464}{\fSmall}{Giao diện chỉ khởi chạy sau khi máy chủ nạp xong dữ liệu và qua cổng kiểm tra IPv4.}
+	}
+	\note{%
+		Slide 17 (~45s): Hạ tầng Docker nay tách riêng khối cấu hình Nginx tắt bộ đệm cho luồng SSE, đóng gói sẵn artifact học máy và bổ sung hồ sơ mở rộng tùy chọn gồm Redpanda, Redis và ClickHouse.}
+\end{frame}
+
+% ===================================================================== 18
+\begin{frame}{Kiểm thử đa tầng, đối đẳng Lakehouse và chịu tải}
+	\rislide{%
+		\riHead{06 · Kiểm thử toàn stack}{129 E2E · 36 Unit · 8 Pytest · Stress 7+4B pha · Parity}
+		\riTable{128}{260}{\fSmall}{14}{350,100,130,130,130}{l,r,r,r,l}
+		\riRow[th]{52}{Tầng kiểm thử API & Tổng & Unit & E2E & Kết quả}
+		\riRow{50}{Tầng 0 · Bộ nạp \& Chỉ mục & 4 & 4 & 4 & ĐẠT}
+		\riRow{50}{Tầng 1 · 11 tính năng & 55 & 15 & 55 & ĐẠT}
+		\riRow{50}{Tầng 2 · Biên \& 400/404 & 60 & 17 & 60 & ĐẠT}
+		\riRow{50}{Tầng 3--4 · Liên thông \& Tải & 10 & 0 & 10 & ĐẠT}
+		\riRow[hl]{54}{\textbf{Tổng REST API} & \textbf{129} & \textbf{36} & \textbf{129} & \textbf{100\%}}
+
+		\riCardSoft{128}{630}{840}{274}
+		\riT[text=riBlue]{156}{658}{\fBodyS}{Kiểm định Lakehouse, Python \& Frontend}
+		\riTw[text=riSlate]{156}{708}{784}{\fSmall}{%
+			\textbf{Đối đẳng Shadow Parity:} Nạp Gold chỉ \textbf{16 ms} vs. 2.516 ms RAM (gấp \textbf{157x}); khớp $4/4$ tổ hợp OLAP Cube và $1.080/1.080$ chuỗi dự báo.\\
+			\textbf{Python Pytest (8/8):} Vượt Schema/DLQ, 8/8 Quality Gates, chống rò rỉ SMOTE và bộ suy luận ML.\\
+			\textbf{Frontend Build:} Đóng gói Vite 656 mô-đun trong 2,20 giây.}
+
+		\riT[text=riMuted]{1020}{260}{\fSmallS}{Đo đạc chịu tải toàn diện (7 pha + Pha 4B)}
+		\riCard{1020}{308}{370}{180}
+		\riT[text=riBlue]{1048}{334}{\fMicro}{750 yêu cầu song song}
+		\riT{1048}{374}{\fHthree}{6.556 req/s}
+		\riT[text=riMuted]{1048}{428}{\fMicro}{p50 11,5 ms · p95 22,85 ms}
+
+		\riCard{1422}{308}{370}{180}
+		\riT[text=riGreen]{1448}{334}{\fMicro}{Khởi tạo 410.506 dòng}
+		\riT{1448}{374}{\fHthree}{2.735 ms}
+		\riT[text=riMuted]{1448}{428}{\fMicro}{RAM RSS 504,5 MB}
+
+		\riCard{1020}{512}{772}{186}
+		\riT[text=riAmber]{1048}{538}{\fBodyS}{Pha 4B · SSE, OLAP Cube \& ML}
+		\riTw[text=riMuted]{1048}{584}{716}{\fSmall}{20 luồng SSE đồng thời, 60 truy vấn Cube song song và đủ 3 tuyến ML hoạt động ổn định.}
+
+		\riCard{1020}{720}{772}{184}
+		\riT[text=riInk]{1048}{746}{\fBodyS}{Đồng bộ, Fuzzing \& An toàn thoát}
+		\riTw[text=riMuted]{1048}{792}{716}{\fSmall}{120/120 chu kỳ stream--reset toàn vẹn; chặn fuzzing 400/413; cache giữ trần 1.500 mục.}
+	}
+	\note{%
+		Slide 18 (~55s): Toàn bộ hệ thống vượt qua 129/129 kiểm thử API, 36/36 unit test, 8/8 kiểm thử Python cho Medallion và ML, cùng bài kiểm tra đối đẳng xác nhận bản Lakehouse nhanh gấp 157 lần và chịu tải 6.556 yêu cầu mỗi giây kể cả khi mở 20 luồng SSE đồng thời.}
+\end{frame}
+
+% ===================================================================== 19
+\begin{frame}{Hạn chế hiện tại và hướng phát triển}
+	\rislide{%
+		\riHead{06 · Đánh giá}{Hạn chế còn tồn tại và hướng phát triển tiếp theo}
+		\riT[text=riMuted]{128}{264}{\fSmallS}{Hạn chế hiện tại}
+		\riT[text=riBlue]{992}{264}{\fSmallS}{Hướng phát triển}
+		\foreach \y/\a/\b/\c/\d in {
+				316/{Bộ đếm phiên trên tiến trình đơn}/{Tích lũy phiên vẫn nằm trên RAM khi chưa bật Redis}%
+				/{Đồng bộ trạng thái qua Redis}/{Lưu bền vững bộ đếm đa nút và chia sẻ phiên thời gian thực},
+				468/{Hồ sơ streaming chạy tách rời}/{Luồng Node.js vẫn đọc mẫu tĩnh thay vì consumer trực tuyến}%
+				/{Kích hoạt consumer Redpanda}/{Ghi thẳng sự kiện bán hàng xuống ClickHouse và DuckDB},
+				620/{Tín hiệu hoàn trả đơn lẻ yếu}/{PR-AUC khoảng 0,075 do thiếu kích cỡ \& lý do trả hàng}%
+				/{Bổ sung đặc trưng ngữ cảnh}/{Thu thập lịch sử đổi trả theo khách hàng và biến thể sản phẩm},
+				772/{Chưa có RBAC \& xếp hạng tồn chết}/{Thiếu phân quyền cửa hàng và sắp xếp Top 10 theo độ khẩn}%
+				/{Hoàn thiện sản xuất CI/CD}/{Tích hợp xác thực theo vai trò, xếp hạng tồn chết \& GitHub Actions}}{
+				\riCard{128}{\y}{800}{128}
+				\riT{157}{\y+22}{\fBodyS}{\a}
+				\riT[text=riMuted]{157}{\y+70}{\fSmall}{\b}
+				\draw[ri conn] (928,\y+64) -- (992,\y+64);
+				\riCardSoft{992}{\y}{800}{128}
+				\riT[text=riBlue]{1020}{\y+22}{\fBodyS}{\c}
+				\riT[text=riMuted]{1020}{\y+70}{\fSmall}{\d}}
+	}
+	\note{%
+		Slide 19 (~50s): Sau khi đã bổ sung backtest, OLAP Cube, SSE và nhận diện hàng tồn chết, bốn hạn chế còn lại gồm tính bay hơi của bộ đếm trên RAM, consumer Redpanda chưa chạy trực tuyến trong Node.js, thiếu đặc trưng dự đoán hoàn trả và chưa có phân quyền theo cửa hàng.}
+\end{frame}
+
+% ===================================================================== 20
+\begin{frame}{Kết luận}
+	\rislide[dark]{\riNoFooter%
+		\riT[text=riEyebrowC]{128}{124}{\fEyebrow}{\MakeUppercase{CO4033 · Tổng kết đồ án}}
+		\riStatusBars{128}{316}
+		\riT{128}{356}{\fBig}{Retail Intelligence}
+		\riTw[text=riBlueSoft]{128}{492}{1300}{\fHthreeReg}%
+		{Cảm ơn thầy và các bạn đã lắng nghe · Rất mong nhận được câu hỏi và góp ý}
+
+		\riCardDark{128}{660}{390}{180}
+		\riT[text=riBlueMid]{156}{688}{\fMicro}{Lakehouse \& Dữ liệu}
+		\riT{156}{730}{\fHthree}{410.506 dòng}
+		\riT[text=riMutedDark]{156}{784}{\fSmall}{8/8 Gates · 16 ms init (157x)}
+
+		\riCardDark{552}{660}{390}{180}
+		\riT[text=riGreen]{580}{688}{\fMicro}{Học máy thực nghiệm}
+		\riT{580}{730}{\fHthree}{-17,06\% MAE}
+		\riT[text=riMutedDark]{580}{784}{\fSmall}{Hybrid GBDT · F1 0,858}
+
+		\riCardDark{976}{660}{390}{180}
+		\riT[text=riAmber]{1004}{688}{\fMicro}{Kiểm chứng toàn diện}
+		\riT{1004}{730}{\fHthree}{129 E2E + 8 Py}
+		\riT[text=riMutedDark]{1004}{784}{\fSmall}{6.556 req/s · Stress 7+4B}
+
+		\riCardDark{1400}{660}{392}{180}
+		\riT[text=riRose]{1428}{688}{\fMicro}{Giao diện \& Báo cáo}
+		\riT{1428}{730}{\fHthree}{ECharts 6}
+		\riT[text=riMutedDark]{1428}{784}{\fSmall}{OLAP Cube · 64 trang báo cáo}
+
+		\riT[text=riMutedDark]{128}{900}{\fSmall}{Mã nguồn \& Báo cáo: \textbf{github.com/qhuuwx/bigdata-hk262}}
+		\riT[anchor=north east,text=riMutedDark]{1792}{900}{\fSmall}{GVHD: ThS. Bùi Tiến Đức · Khoa KH\&KTMT, ĐHBK}
+	}
+	\note{%
+		Slide 20 (~20s): Tổng kết lại, hệ thống Retail Intelligence đã hoàn chỉnh cả hai chế độ RAM và Medallion Lakehouse, tích hợp dự báo Hybrid GBDT giảm 17,06\% MAE, giao diện Apache ECharts 6 và đạt 100\% toàn bộ năm tầng kiểm thử. Em xin cảm ơn thầy và các bạn.}
+\end{frame}
+
+\end{document}
