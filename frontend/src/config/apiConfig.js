@@ -31,16 +31,22 @@ export const getApiBaseUrl = () => {
 
 export const API_ENDPOINTS = {
   STREAM_SALES: '/api/stream/sales',
+  STREAM_SALES_EVENTS: '/api/stream/sales/events',
   EDA_REVENUE: '/api/eda/revenue-trend',
   EDA_CATEGORIES: '/api/eda/top-categories',
   EDA_CHANNELS: '/api/eda/channel-split',
   EDA_RETURNS: '/api/eda/return-rate',
+  EDA_FILTERS: '/api/eda/filters',
   FORECAST: '/api/forecast',
   CATEGORIES: '/api/forecast/categories',
   STORES: '/api/forecast/stores',
   INVENTORY_STREAM: '/api/inventory/stream',
+  INVENTORY_STREAM_EVENTS: '/api/inventory/stream/events',
   INVENTORY_ALERTS: '/api/inventory/alerts',
   INVENTORY_RESET: '/api/inventory/reset',
+  ML_METRICS: '/api/ml/metrics',
+  ML_FORECAST: '/api/ml/forecast',
+  ML_CLASSIFY_INVENTORY: '/api/ml/classify-inventory',
   HEALTH: '/api/health'
 };
 

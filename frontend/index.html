@@ -5,15 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Retail Intelligence & Demand Forecasting | CO4033</title>
 
+  <!-- Zero-FOUC Theme Initialization -->
+  <script>
+    try {
+      const savedTheme = localStorage.getItem('ri_theme');
+      if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      }
+    } catch (e) {}
+  </script>
+
   <!-- Google Fonts: Inter (UI/Prose) & JetBrains Mono (Tabular Metrics/IDs) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
-  <!-- Tailwind CSS CDN -->
+  <!-- Tailwind CSS CDN with Dark Mode Class Strategy -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
+      darkMode: 'class',
       theme: {
         extend: {
           fontFamily: {
@@ -24,17 +35,8 @@
       }
     }
   </script>
-
-  <!-- Chart.js 4.4.7 UMD -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-  <script>
-    if (window.Chart) {
-      Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
-      Chart.defaults.color = '#64748b';
-    }
-  </script>
 </head>
-<body class="bg-[#F8FAFC] text-slate-900 antialiased overflow-hidden font-sans selection:bg-blue-600 selection:text-white">
+<body class="bg-[#F8FAFC] dark:bg-[#0B1120] text-slate-900 dark:text-slate-100 antialiased overflow-hidden font-sans selection:bg-blue-600 selection:text-white transition-colors duration-200">
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
 </body>

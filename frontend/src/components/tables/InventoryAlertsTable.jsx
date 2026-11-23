@@ -1,24 +1,22 @@
 ﻿/**
  * Inventory Alerts Table Component
- * Displays top 10 prioritized stock alerts (Low Stock urgent first, then Overstock).
+ * Displays top 10 prioritized stock alerts (Low Stock urgent first, then Overstock)
+ * with layout-matched skeleton loader and Dark Mode support.
  */
 
 import React from 'react';
 import Badge from '../common/Badge';
+import { SkeletonTable } from '../common/Skeleton';
 import { formatNumber } from '../../utils/formatters';
 
 export const InventoryAlertsTable = ({ alerts = [], isLoading = false }) => {
   if (isLoading) {
-    return (
-      <div className="text-center py-8 text-slate-400 text-xs">
-        Đang truy xuất danh sách cảnh báo tồn kho...
-      </div>
-    );
+    return <SkeletonTable rows={6} cols={6} />;
   }
 
   if (!alerts || alerts.length === 0) {
     return (
-      <div className="text-center py-8 text-slate-400 text-xs">
+      <div className="text-center py-8 text-slate-400 dark:text-slate-500 text-xs">
         Không ghi nhận cảnh báo tồn kho vượt ngưỡng tại thời điểm này.
       </div>
     );
@@ -27,7 +25,7 @@ export const InventoryAlertsTable = ({ alerts = [], isLoading = false }) => {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left text-xs border-collapse">
-        <thead className="bg-slate-50 text-slate-500 font-medium text-[11px] border-b border-slate-200">
+        <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 font-medium text-[11px] border-b border-slate-200 dark:border-slate-800">
           <tr>
             <th className="py-2.5 px-4 font-medium w-14">Hạng</th>
             <th className="py-2.5 px-4 font-medium">Danh mục sản phẩm</th>
@@ -37,25 +35,25 @@ export const InventoryAlertsTable = ({ alerts = [], isLoading = false }) => {
             <th className="py-2.5 px-4 font-medium text-right">Mức độ ưu tiên</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 text-slate-700">
+        <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70 text-slate-700 dark:text-slate-300">
           {alerts.map((row, idx) => {
             const statusText = row.stockStatus || row.status || row['Stock Status'] || 'Low Stock';
             const isLow = statusText.toLowerCase().includes('low');
             const cleanLevel = isLow ? 'Khẩn cấp (Cover < 14d)' : 'Chú ý (Cover ≥ 60d)';
             return (
-              <tr key={`${row.category}-${row.store}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
-                <td className="py-2.5 px-4 font-mono text-[11px] text-slate-400 tabular-nums">
+              <tr key={`${row.category}-${row.store}-${idx}`} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                <td className="py-2.5 px-4 font-mono text-[11px] text-slate-400 dark:text-slate-500 tabular-nums">
                   {String(idx + 1).padStart(2, '0')}
                 </td>
-                <td className="py-2.5 px-4 font-medium text-slate-900">
+                <td className="py-2.5 px-4 font-medium text-slate-900 dark:text-slate-100">
                   {row.category}
                 </td>
                 <td className="py-2.5 px-4">
-                  <span className="inline-block bg-slate-100 border border-slate-200/80 px-2 py-0.5 rounded text-[11px] font-mono text-slate-700">
+                  <span className="inline-block bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 px-2 py-0.5 rounded text-[11px] font-mono text-slate-700 dark:text-slate-300">
                     {row.store}
                   </span>
                 </td>
-                <td className="py-2.5 px-4 text-right font-mono tabular-nums font-semibold text-slate-900">
+                <td className="py-2.5 px-4 text-right font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">
                   {formatNumber(row.qtyOnHand)}
                 </td>
                 <td className="py-2.5 px-4 text-center">
