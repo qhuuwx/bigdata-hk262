@@ -1,0 +1,39 @@
+\clearpage
+\part*{Tuyên bố sử dụng công cụ AI (AI-Use Statement)}
+
+Trong quá trình nghiên cứu, phát triển hệ thống \mintinline{text}{bigdata_inventory} và hoàn thiện báo cáo bài tập lớn môn \textbf{Phân tích Dữ liệu lớn và Trí tuệ Kinh Doanh (CO4033)}, nhóm sinh viên thực hiện tuân thủ nguyên tắc minh bạch và liêm chính học thuật đối với việc sử dụng các công cụ Trí tuệ nhân tạo tạo sinh (\textit{Generative AI}).
+
+\medskip
+\noindent\textbf{1. Phạm vi và mục đích sử dụng}
+
+Nhóm chỉ sử dụng các công cụ AI (như các mô hình ngôn ngữ lớn và trợ lý lập trình) ở vai trò công cụ hỗ trợ kỹ thuật và biên tập, không thay thế tư duy thiết kế, phân tích và kiểm chứng của người thực hiện. Cụ thể, các công cụ AI được sử dụng trong các khâu sau:
+\begin{itemize}[topsep=4pt, itemsep=3pt]
+	\item \textbf{Tra cứu và tổng hợp kiến thức nền tảng:} Hỗ trợ giải thích khái niệm chuyên môn, đối chiếu tài liệu kỹ thuật của các thư viện và công nghệ sử dụng trong đồ án (DuckDB, Scikit-learn, imbalanced-learn, Apache ECharts~6, Server-Sent Events, Docker Compose).
+	\item \textbf{Hỗ trợ lập trình và tái cấu trúc mã nguồn:} Gợi ý cấu trúc mô-đun theo \textit{Clean Architecture}, hỗ trợ viết mã mẫu, rà soát lỗi cú pháp/logic và bổ sung các kịch bản kiểm thử tự động. Mọi đoạn mã do AI gợi ý đều được nhóm đọc hiểu, chỉnh sửa phù hợp với kiến trúc hệ thống và kiểm chứng thông qua các bộ kiểm thử đơn vị, kiểm thử tích hợp E2E, kiểm thử đối đẳng và kiểm thử chịu tải.
+	\item \textbf{Hỗ trợ trình bày báo cáo và định dạng \LaTeX{}:} Hỗ trợ chuẩn hóa cú pháp \LaTeX{}, định dạng bảng biểu, chuyển đổi mô tả kiến trúc sang mã nguồn sơ đồ Mermaid và rà soát lỗi chính tả, diễn đạt học thuật tiếng Việt.
+\end{itemize}
+
+\medskip
+\noindent\textbf{2. Bảng tổng hợp mức độ sử dụng theo hạng mục công việc}
+
+\begin{table}[H]
+	\centering
+	\small
+	\begin{tabular}{p{4.5cm} p{4.2cm} p{6.8cm}}
+		\toprule
+		\textbf{Hạng mục công việc} & \textbf{Mức độ hỗ trợ của AI} & \textbf{Vai trò kiểm soát của nhóm sinh viên} \\
+		\midrule
+		Thiết kế kiến trúc hệ thống và bài toán nghiệp vụ & Thấp (tham khảo ý tưởng) & Nhóm tự xác định yêu cầu (Q1--Q6, FR-01--FR-12), thiết kế kiến trúc tổng thể và các đánh đổi kỹ thuật. \\
+		Hiện thực mã nguồn Backend, Pipeline, ML và Frontend & Trung bình (gợi ý mã, gỡ lỗi) & Nhóm trực tiếp tích hợp, hiệu chỉnh logic nghiệp vụ, tham số mô hình và chạy kiểm thử xác nhận trên toàn bộ kho mã nguồn. \\
+		Thực nghiệm, trích xuất số liệu và đánh giá mô hình & Không sử dụng để sinh số liệu & Toàn bộ số liệu EDA, kết quả dự báo, phân loại tồn kho và kiểm thử chịu tải đều được chạy trực tiếp từ dữ liệu thực và mã nguồn của hệ thống. \\
+		Soạn thảo và trình bày báo cáo \LaTeX{} & Trung bình (biên tập, định dạng) & Nhóm biên soạn nội dung cốt lõi, đối chiếu chéo từng con số với kết quả thực nghiệm và chịu trách nhiệm về tính chính xác. \\
+		\bottomrule
+	\end{tabular}
+	\caption{Tổng hợp phạm vi sử dụng công cụ AI và trách nhiệm kiểm chứng của nhóm thực hiện}
+	\label{tab:ai-use-statement}
+\end{table}
+
+\medskip
+\noindent\textbf{3. Cam kết trách nhiệm học thuật}
+
+Nhóm sinh viên xin khẳng định không sử dụng công cụ AI để ngụy tạo dữ liệu, bịa đặt kết quả thực nghiệm hay sao chép nội dung thiếu kiểm chứng. Toàn bộ mã nguồn, kết quả thực nghiệm, phân tích khoa học và nội dung trình bày trong báo cáo này đã được nhóm trực tiếp rà soát, xác thực và nhóm xin chịu hoàn toàn trách nhiệm trước giảng viên hướng dẫn và Khoa Khoa học và Kỹ thuật Máy tính, Trường Đại học Bách khoa -- ĐHQG-HCM.
